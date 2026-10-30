@@ -22,7 +22,10 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.findRootCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
@@ -183,9 +186,11 @@ fun RibbonRow(keys: List<KeyDefinition>) {
 fun RemappableKeyView(key: KeyDefinition) {
     val viewModel = LocalKeyboardViewModel.current
     val view = LocalView.current
+    val density = LocalDensity.current
     var isPressedDown by remember { mutableStateOf(false) }
     var showPopup by remember { mutableStateOf(false) }
     var selectedIndex by remember { mutableIntStateOf(-1) }
+    var popupHorizontalShiftDp by remember { mutableStateOf(0.dp) }
 
     val isShiftActive = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
     val displayedChar = viewModel.resolveDisplayedChar(key)
@@ -208,7 +213,6 @@ fun RemappableKeyView(key: KeyDefinition) {
         else -> Alignment.Center
     }
 
-    val density = LocalDensity.current
     val popupMenuOffsetPx = with(density) { (-64).dp.roundToPx() }
 
     Box(
@@ -216,6 +220,25 @@ fun RemappableKeyView(key: KeyDefinition) {
             .fillMaxWidth()
             .height(KeyboardDimens.keyHeight)
             .zIndex(if (isPressedDown || showPopup) 10f else 0f)
+            .onGloballyPositioned { coordinates ->
+                val rootWidth = coordinates.findRootCoordinates().size.width.toFloat()
+                val keyCenterInRoot = coordinates.positionInRoot().x + (coordinates.size.width / 2f)
+                val popupRadiusPx = with(density) { (KeyboardDimens.popupCircleSize / 2f).toPx() }
+
+                val popupLeftInRoot = keyCenterInRoot - popupRadiusPx
+                val popupRightInRoot = keyCenterInRoot + popupRadiusPx
+
+                val shiftPx = when {
+                    popupLeftInRoot < 0f -> -popupLeftInRoot
+                    popupRightInRoot > rootWidth -> rootWidth - popupRightInRoot
+                    else -> 0f
+                }
+
+                val shiftDp = with(density) { shiftPx.toDp() }
+                if (popupHorizontalShiftDp != shiftDp) {
+                    popupHorizontalShiftDp = shiftDp
+                }
+            }
             .pointerInput(key.id) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
@@ -276,7 +299,7 @@ fun RemappableKeyView(key: KeyDefinition) {
             Box(
                 modifier = Modifier
                     .align(visualAlignment)
-                    .offset(y = (-58).dp)
+                    .offset(x = popupHorizontalShiftDp, y = (-60).dp)
                     .requiredSize(KeyboardDimens.popupCircleSize)
                     .graphicsLayer {
                         alpha = if (isPressedDown && !showPopup) 1f else 0f
