@@ -258,8 +258,28 @@ fun RemappableKeyView(key: KeyDefinition) {
                             view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                             selectedIndex = 0
                             showPopup = true
+
+                            val itemWidthPx = with(density) { KeyboardDimens.popupCircleSize.toPx() }
+
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull() ?: break
+                                if (change.pressed) {
+                                    val newIndex = (change.position.x / itemWidthPx).toInt().coerceIn(0, key.popups.lastIndex)
+                                    if (newIndex != selectedIndex) {
+                                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                        selectedIndex = newIndex
+                                    }
+                                } else {
+                                    val symbol = key.popups.getOrNull(selectedIndex) ?: key.popups.first()
+                                    viewModel.selectPopup(symbol)
+                                    showPopup = false
+                                    break
+                                }
+                            }
+                        } else {
+                            waitForUpOrCancellation()
                         }
-                        waitForUpOrCancellation()
                     }
                 }
             }
@@ -320,42 +340,27 @@ fun RemappableKeyView(key: KeyDefinition) {
         }
 
         if (showPopup && key.popups.isNotEmpty()) {
-            Popup(
-                alignment = Alignment.TopCenter,
-                offset = IntOffset(x = 0, y = popupMenuOffsetPx),
-                properties = PopupProperties(focusable = false),
-                onDismissRequest = { showPopup = false }
+            val activeSymbol = key.popups.getOrNull(selectedIndex.coerceAtLeast(0))
+                ?: key.popups.firstOrNull()
+                ?: ""
+
+            Box(
+                modifier = Modifier
+                    .align(visualAlignment)
+                    .offset(x = popupHorizontalShiftDp, y = (-60).dp)
+                    .requiredSize(KeyboardDimens.popupCircleSize)
+                    .shadow(elevation = 6.dp, shape = CircleShape)
+                    .background(Color.White, CircleShape)
+                    .border(0.5.dp, Color(0xFFD1D5DB), CircleShape),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier
-                        .shadow(elevation = 6.dp, shape = RoundedCornerShape(KeyboardDimens.keyCornerRadius))
-                        .background(Color.White, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
-                        .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(KeyboardDimens.keyCornerRadius))
-                        .padding(horizontal = 6.dp, vertical = 4.dp)
-                ) {
-                    key.popups.forEachIndexed { idx, symbol ->
-                        Box(
-                            modifier = Modifier
-                                .padding(horizontal = 4.dp, vertical = 2.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(if (idx == selectedIndex) Color(0xFF2563EB) else Color.Transparent)
-                                .pointerInput(symbol) {
-                                    detectTapGestures {
-                                        viewModel.selectPopup(symbol)
-                                        showPopup = false
-                                    }
-                                }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = symbol,
-                                color = if (idx == selectedIndex) Color.White else Color(0xFF111827),
-                                fontSize = 18.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                    }
-                }
+                Text(
+                    text = activeSymbol,
+                    color = Color(0xFF2563EB),
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.Monospace
+                )
             }
         }
         }
