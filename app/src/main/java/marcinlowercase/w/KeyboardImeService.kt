@@ -82,9 +82,20 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
 
-        viewModel.onKeyPressHandler = { handleKeyPress(it) }
-        viewModel.onTextCommitHandler = { commitText(it) }
-        viewModel.onCursorGlideHandler = { handleCursorGlide(it) }
+        viewModel.onKeyPressHandler = {
+            resetCursorTracking()
+            handleKeyPress(it)
+        }
+        viewModel.onTextCommitHandler = {
+            resetCursorTracking()
+            commitText(it)
+        }
+        viewModel.onCursorGlideHandler = { delta, isSelecting -> handleCursorGlide(delta, isSelecting) }
+        viewModel.onGlideEndHandler = {
+            if (!viewModel.isShiftPhysicallyHeld.value) {
+                resetGlideSelection()
+            }
+        }
 
         composeView.setContent {
             KeyboardView(viewModel = viewModel)
@@ -113,11 +124,16 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             KeyType.BACKSPACE -> {
                 val textBefore = ic.getTextBeforeCursor(1, 0)
                 val selected = ic.getSelectedText(0)
-                if (!textBefore.isNullOrEmpty() || !selected.isNullOrEmpty()) {
-                    ic.deleteSurroundingText(1, 0)
-                    true
-                } else {
-                    false
+                when {
+                    !selected.isNullOrEmpty() -> {
+                        ic.commitText("", 1)
+                        true
+                    }
+                    !textBefore.isNullOrEmpty() -> {
+                        ic.deleteSurroundingText(1, 0)
+                        true
+                    }
+                    else -> false
                 }
             }
             KeyType.ENTER -> {
@@ -162,11 +178,85 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
     }
 
-    private fun handleCursorGlide(deltaSteps: Int) {
-        val ic = currentInputConnection ?: return
-        val keyCode = if (deltaSteps > 0) KeyEvent.KEYCODE_DPAD_RIGHT else KeyEvent.KEYCODE_DPAD_LEFT
-        repeat(kotlin.math.abs(deltaSteps)) {
-            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
+    private var selectionAnchor: Int? = null
+    private var activeCursorPos: Int? = null
+    private var lastKnownCursorPos: Int? = null
+
+    private fun handleCursorGlide(deltaSteps: Int, isSelecting: Boolean): Boolean {
+        val ic = currentInputConnection ?: return false
+        val before = ic.getTextBeforeCursor(10000, 0)?.length ?: 0
+        val selected = ic.getSelectedText(0)?.length ?: 0
+        val after = ic.getTextAfterCursor(10000, 0)?.length ?: 0
+        val total = before + selected + after
+        if (total == 0) return false
+
+        if (lastKnownCursorPos == null) {
+            lastKnownCursorPos = before + selected
         }
+
+        if (!isSelecting) {
+            resetGlideSelection()
+            val currentPos = lastKnownCursorPos ?: (before + selected)
+            val target = (currentPos + deltaSteps).coerceIn(0, total)
+            return if (target != currentPos) {
+                lastKnownCursorPos = target
+                ic.setSelection(target, target)
+                true
+            } else {
+                false
+            }
+        } else {
+            if (selectionAnchor == null) {
+                if (selected > 0) {
+                    val startOfSel = before
+                    val endOfSel = before + selected
+                    when {
+                        lastKnownCursorPos == startOfSel -> {
+                            selectionAnchor = endOfSel
+                            activeCursorPos = startOfSel
+                        }
+                        lastKnownCursorPos == endOfSel -> {
+                            selectionAnchor = startOfSel
+                            activeCursorPos = endOfSel
+                        }
+                        deltaSteps < 0 -> {
+                            selectionAnchor = endOfSel
+                            activeCursorPos = startOfSel
+                        }
+                        else -> {
+                            selectionAnchor = startOfSel
+                            activeCursorPos = endOfSel
+                        }
+                    }
+                } else {
+                    val currentPos = lastKnownCursorPos ?: before
+                    selectionAnchor = currentPos
+                    activeCursorPos = currentPos
+                }
+            }
+
+            val anchor = selectionAnchor ?: before
+            val currentPos = activeCursorPos ?: anchor
+            val target = (currentPos + deltaSteps).coerceIn(0, total)
+
+            return if (target != currentPos) {
+                activeCursorPos = target
+                lastKnownCursorPos = target
+                ic.setSelection(anchor, target)
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    private fun resetGlideSelection() {
+        selectionAnchor = null
+        activeCursorPos = null
+    }
+
+    private fun resetCursorTracking() {
+        resetGlideSelection()
+        lastKnownCursorPos = null
     }
 }

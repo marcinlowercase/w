@@ -10,11 +10,13 @@ import marcinlowercase.w.model.ShiftState
 class KeyboardViewModel : ViewModel() {
     val layoutConfig = mutableStateOf(DefaultLayout.create())
     val shiftState = mutableStateOf(ShiftState.OFF)
+    val isShiftPhysicallyHeld = mutableStateOf(false)
     private var lastShiftPressTime = 0L
 
     var onKeyPressHandler: ((KeyDefinition) -> Boolean)? = null
     var onTextCommitHandler: ((String) -> Unit)? = null
-    var onCursorGlideHandler: ((Int) -> Unit)? = null
+    var onCursorGlideHandler: ((Int, Boolean) -> Boolean)? = null
+    var onGlideEndHandler: (() -> Unit)? = null
 
     fun onShiftPressed() {
         val now = System.currentTimeMillis()
@@ -85,7 +87,11 @@ class KeyboardViewModel : ViewModel() {
         }
     }
 
-    fun glideCursor(delta: Int) {
-        onCursorGlideHandler?.invoke(delta)
+    fun glideCursor(delta: Int): Boolean {
+        return onCursorGlideHandler?.invoke(delta, isShiftPhysicallyHeld.value) ?: false
+    }
+
+    fun onGlideEnd() {
+        onGlideEndHandler?.invoke()
     }
 }

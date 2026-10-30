@@ -198,7 +198,7 @@ fun RibbonRow(keys: List<KeyDefinition>) {
 }
 
 enum class ShiftHoldAction {
-    CAPS_LOCK,
+    NONE,
     TAB,
     ESC
 }
@@ -213,7 +213,7 @@ fun RemappableKeyView(key: KeyDefinition) {
     var isPressedDown by remember { mutableStateOf(false) }
     var showPopup by remember { mutableStateOf(false) }
     var selectedIndex by remember { mutableIntStateOf(-1) }
-    var shiftHoldAction by remember { mutableStateOf(ShiftHoldAction.CAPS_LOCK) }
+    var shiftHoldAction by remember { mutableStateOf(ShiftHoldAction.NONE) }
     var popupHorizontalShiftDp by remember { mutableStateOf(0.dp) }
 
     val isShiftActive = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
@@ -275,6 +275,9 @@ fun RemappableKeyView(key: KeyDefinition) {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                     isPressedDown = true
+                    if (key.type == KeyType.SHIFT) {
+                        viewModel.isShiftPhysicallyHeld.value = true
+                    }
 
                     if (key.type == KeyType.BACKSPACE) {
                         viewModel.pressKey(key)
@@ -306,12 +309,16 @@ fun RemappableKeyView(key: KeyDefinition) {
 
                     if (up != null) {
                         isPressedDown = false
+                        if (key.type == KeyType.SHIFT) {
+                            viewModel.isShiftPhysicallyHeld.value = false
+                            viewModel.onGlideEnd()
+                        }
                         viewModel.pressKey(key)
                     } else {
                         isPressedDown = false
                         if (key.type == KeyType.SHIFT) {
                             view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                            shiftHoldAction = ShiftHoldAction.CAPS_LOCK
+                            shiftHoldAction = ShiftHoldAction.NONE
                             showPopup = true
 
                             val startY = down.position.y
@@ -325,23 +332,19 @@ fun RemappableKeyView(key: KeyDefinition) {
                                     val newAction = when {
                                         deltaY < -verticalThresholdPx -> ShiftHoldAction.TAB
                                         deltaY > verticalThresholdPx -> ShiftHoldAction.ESC
-                                        else -> ShiftHoldAction.CAPS_LOCK
+                                        else -> ShiftHoldAction.NONE
                                     }
                                     if (newAction != shiftHoldAction) {
                                         view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                                         shiftHoldAction = newAction
                                     }
                                 } else {
+                                    viewModel.isShiftPhysicallyHeld.value = false
+                                    viewModel.onGlideEnd()
                                     when (shiftHoldAction) {
                                         ShiftHoldAction.TAB -> viewModel.pressKey(KeyDefinition("tab", "TAB", type = KeyType.MODIFIER))
                                         ShiftHoldAction.ESC -> viewModel.pressKey(KeyDefinition("esc", "ESC", type = KeyType.MODIFIER))
-                                        ShiftHoldAction.CAPS_LOCK -> {
-                                            viewModel.shiftState.value = if (viewModel.shiftState.value == marcinlowercase.w.model.ShiftState.CAPS_LOCK) {
-                                                marcinlowercase.w.model.ShiftState.OFF
-                                            } else {
-                                                marcinlowercase.w.model.ShiftState.CAPS_LOCK
-                                            }
-                                        }
+                                        ShiftHoldAction.NONE -> Unit
                                     }
                                     showPopup = false
                                     break
@@ -476,7 +479,7 @@ fun RemappableKeyView(key: KeyDefinition) {
 
                     val shiftOptions = listOf(
                         ShiftHoldAction.TAB,
-                        ShiftHoldAction.CAPS_LOCK,
+                        ShiftHoldAction.NONE,
                         ShiftHoldAction.ESC
                     )
 
@@ -503,18 +506,18 @@ fun RemappableKeyView(key: KeyDefinition) {
                                     fontWeight = FontWeight.SemiBold,
                                     fontFamily = FontFamily.Monospace
                                 )
+                                ShiftHoldAction.NONE -> Icon(
+                                    painter = painterResource(id = R.drawable.ic_shift_on),
+                                    contentDescription = null,
+                                    tint = itemColor,
+                                    modifier = Modifier.size(24.dp)
+                                )
                                 ShiftHoldAction.ESC -> Text(
                                     text = escText,
                                     color = itemColor,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     fontFamily = FontFamily.Monospace
-                                )
-                                ShiftHoldAction.CAPS_LOCK -> Icon(
-                                    painter = painterResource(id = R.drawable.ic_caps_lock),
-                                    contentDescription = null,
-                                    tint = itemColor,
-                                    modifier = Modifier.size(24.dp)
                                 )
                             }
                         }
@@ -601,12 +604,16 @@ fun SpaceKeyView(key: KeyDefinition) {
                         if (kotlin.math.abs(accumulatedDrag) >= stepThreshold) {
                             val steps = (accumulatedDrag / stepThreshold).toInt()
                             if (steps != 0) {
-                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                                viewModel.glideCursor(steps)
+                                val moved = viewModel.glideCursor(steps)
+                                if (moved) {
+                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                }
                                 accumulatedDrag -= steps * stepThreshold
                             }
                         }
-                    }
+                    },
+                    onDragEnd = { viewModel.onGlideEnd() },
+                    onDragCancel = { viewModel.onGlideEnd() }
                 )
             },
         color = spaceBg
