@@ -34,24 +34,31 @@ class KeyboardViewModel : ViewModel() {
     }
 
     fun resolveDisplayedChar(key: KeyDefinition): String {
-        val isShiftActive = shiftState.value != ShiftState.OFF
-        return if (isShiftActive && key.type == KeyType.CHARACTER) {
+        val currentShift = shiftState.value
+        return if (key.type == KeyType.CHARACTER) {
             when {
-                key.primaryChar.length == 1 && key.primaryChar[0].isLetter() -> key.primaryChar.uppercase()
-                key.primaryChar == "1" -> "!"
-                key.primaryChar == "2" -> "@"
-                key.primaryChar == "3" -> "#"
-                key.primaryChar == "4" -> "$"
-                key.primaryChar == "5" -> "%"
-                key.primaryChar == "6" -> "^"
-                key.primaryChar == "7" -> "&"
-                key.primaryChar == "8" -> "*"
-                key.primaryChar == "9" -> "("
-                key.primaryChar == "0" -> ")"
+                key.primaryChar.length == 1 && key.primaryChar[0].isLetter() && currentShift != ShiftState.OFF -> {
+                    key.primaryChar.uppercase()
+                }
+                currentShift == ShiftState.SHIFTED -> {
+                    when (key.primaryChar) {
+                        "1" -> "!"
+                        "2" -> "@"
+                        "3" -> "#"
+                        "4" -> "$"
+                        "5" -> "%"
+                        "6" -> "^"
+                        "7" -> "&"
+                        "8" -> "*"
+                        "9" -> "("
+                        "0" -> ")"
+                        else -> key.primaryChar
+                    }
+                }
                 else -> key.primaryChar
             }
         } else if (key.type == KeyType.SHIFT) {
-            if (shiftState.value == ShiftState.CAPS_LOCK) "⇪" else "⇧"
+            if (currentShift == ShiftState.CAPS_LOCK) "⇪" else "⇧"
         } else {
             key.primaryChar
         }

@@ -19,6 +19,7 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
+import marcinlowercase.w.ui.KeyboardDimens
 import marcinlowercase.w.ui.KeyboardView
 import marcinlowercase.w.viewmodel.KeyboardViewModel
 
@@ -43,6 +44,15 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         super.onConfigureWindow(win, isFullscreen, isCandidatesOnly)
         win.navigationBarColor = android.graphics.Color.WHITE
         WindowCompat.getInsetsController(win, win.decorView).isAppearanceLightNavigationBars = true
+    }
+
+    override fun onComputeInsets(outInsets: Insets) {
+        super.onComputeInsets(outInsets)
+        val density = resources.displayMetrics.density
+        val headroomPx = (KeyboardDimens.popupHeadroom.value * density).toInt()
+        outInsets.contentTopInsets = headroomPx
+        outInsets.visibleTopInsets = headroomPx
+        outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_CONTENT
     }
 
     override fun onCreateInputView(): View {
