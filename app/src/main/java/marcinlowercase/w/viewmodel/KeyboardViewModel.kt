@@ -12,7 +12,7 @@ class KeyboardViewModel : ViewModel() {
     val shiftState = mutableStateOf(ShiftState.OFF)
     private var lastShiftPressTime = 0L
 
-    var onKeyPressHandler: ((KeyDefinition) -> Unit)? = null
+    var onKeyPressHandler: ((KeyDefinition) -> Boolean)? = null
     var onTextCommitHandler: ((String) -> Unit)? = null
     var onCursorGlideHandler: ((Int) -> Unit)? = null
 
@@ -57,22 +57,24 @@ class KeyboardViewModel : ViewModel() {
                 }
                 else -> key.primaryChar
             }
-        } else if (key.type == KeyType.SHIFT) {
-            if (currentShift == ShiftState.CAPS_LOCK) "⇪" else "⇧"
+        } else if (key.type == KeyType.MODIFIER) {
+            if (currentShift != ShiftState.OFF) key.primaryChar.uppercase() else key.primaryChar.lowercase()
         } else {
             key.primaryChar
         }
     }
 
-    fun pressKey(key: KeyDefinition) {
-        if (key.type == KeyType.SHIFT) {
+    fun pressKey(key: KeyDefinition): Boolean {
+        return if (key.type == KeyType.SHIFT) {
             onShiftPressed()
+            true
         } else {
             val resolved = key.copy(primaryChar = resolveDisplayedChar(key))
-            onKeyPressHandler?.invoke(resolved)
+            val handled = onKeyPressHandler?.invoke(resolved) ?: false
             if (key.type == KeyType.CHARACTER && shiftState.value == ShiftState.SHIFTED) {
                 shiftState.value = ShiftState.OFF
             }
+            handled
         }
     }
 

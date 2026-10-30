@@ -1,5 +1,6 @@
 package marcinlowercase.w
 
+import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
 import android.view.KeyEvent
 import android.view.View
@@ -42,8 +43,20 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
 
     override fun onConfigureWindow(win: Window, isFullscreen: Boolean, isCandidatesOnly: Boolean) {
         super.onConfigureWindow(win, isFullscreen, isCandidatesOnly)
-        win.navigationBarColor = android.graphics.Color.WHITE
-        WindowCompat.getInsetsController(win, win.decorView).isAppearanceLightNavigationBars = true
+        applyNavigationBarTheme(win)
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        window?.window?.let { win ->
+            applyNavigationBarTheme(win)
+        }
+    }
+
+    private fun applyNavigationBarTheme(win: Window) {
+        val isDarkMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        win.navigationBarColor = if (isDarkMode) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+        WindowCompat.getInsetsController(win, win.decorView).isAppearanceLightNavigationBars = !isDarkMode
     }
 
     override fun onComputeInsets(outInsets: Insets) {
@@ -63,8 +76,7 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             decor.setViewTreeLifecycleOwner(this)
             decor.setViewTreeViewModelStoreOwner(this)
             decor.setViewTreeSavedStateRegistryOwner(this)
-            win.navigationBarColor = android.graphics.Color.WHITE
-            WindowCompat.getInsetsController(win, decor).isAppearanceLightNavigationBars = true
+            applyNavigationBarTheme(win)
         }
 
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
@@ -87,20 +99,43 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         appViewModelStore.clear()
     }
 
-    private fun handleKeyPress(key: KeyDefinition) {
-        val ic = currentInputConnection ?: return
-        when (key.type) {
-            KeyType.CHARACTER -> commitText(key.primaryChar)
-            KeyType.SPACE -> commitText(" ")
-            KeyType.BACKSPACE -> ic.deleteSurroundingText(1, 0)
-            KeyType.ENTER -> ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
-            KeyType.MODIFIER -> handleModifier(key.id)
-            KeyType.ARROW -> handleArrow(key.id)
-            KeyType.SHIFT -> Unit
-            KeyType.SPACER -> Unit
+    private fun handleKeyPress(key: KeyDefinition): Boolean {
+        val ic = currentInputConnection ?: return false
+        return when (key.type) {
+            KeyType.CHARACTER -> {
+                commitText(key.primaryChar)
+                true
+            }
+            KeyType.SPACE -> {
+                commitText(" ")
+                true
+            }
+            KeyType.BACKSPACE -> {
+                val textBefore = ic.getTextBeforeCursor(1, 0)
+                val selected = ic.getSelectedText(0)
+                if (!textBefore.isNullOrEmpty() || !selected.isNullOrEmpty()) {
+                    ic.deleteSurroundingText(1, 0)
+                    true
+                } else {
+                    false
+                }
+            }
+            KeyType.ENTER -> {
+                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+                true
+            }
+            KeyType.MODIFIER -> {
+                handleModifier(key.id)
+                true
+            }
+            KeyType.ARROW -> {
+                handleArrow(key.id)
+                true
+            }
+            KeyType.SHIFT,
+            KeyType.SPACER -> false
         }
     }
-
     private fun commitText(text: String) {
         currentInputConnection?.commitText(text, 1)
     }
