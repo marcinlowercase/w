@@ -82,9 +82,9 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
 
-        viewModel.onKeyPressHandler = {
+        viewModel.onKeyPressHandler = { key, metaState ->
             resetCursorTracking()
-            handleKeyPress(it)
+            handleKeyPress(key, metaState)
         }
         viewModel.onTextCommitHandler = {
             resetCursorTracking()
@@ -110,8 +110,19 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         appViewModelStore.clear()
     }
 
-    private fun handleKeyPress(key: KeyDefinition): Boolean {
+    private fun handleKeyPress(key: KeyDefinition, metaState: Int = 0): Boolean {
         val ic = currentInputConnection ?: return false
+
+        if (metaState != 0) {
+            val keyCode = resolveKeyCode(key)
+            if (keyCode != KeyEvent.KEYCODE_UNKNOWN) {
+                val now = android.os.SystemClock.uptimeMillis()
+                ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, metaState))
+                ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0, metaState))
+                return true
+            }
+        }
+
         return when (key.type) {
             KeyType.CHARACTER -> {
                 commitText(key.primaryChar)
@@ -150,6 +161,22 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             }
             KeyType.SHIFT,
             KeyType.SPACER -> false
+        }
+    }
+
+    private fun resolveKeyCode(key: KeyDefinition): Int {
+        if (key.type == KeyType.ENTER) return KeyEvent.KEYCODE_ENTER
+        if (key.type == KeyType.SPACE) return KeyEvent.KEYCODE_SPACE
+        if (key.type == KeyType.BACKSPACE) return KeyEvent.KEYCODE_DEL
+        if (key.id == "tab") return KeyEvent.KEYCODE_TAB
+        if (key.id == "esc") return KeyEvent.KEYCODE_ESCAPE
+
+        val ch = key.primaryChar.firstOrNull() ?: return KeyEvent.KEYCODE_UNKNOWN
+        return when {
+            ch in 'a'..'z' -> KeyEvent.KEYCODE_A + (ch - 'a')
+            ch in 'A'..'Z' -> KeyEvent.KEYCODE_A + (ch - 'A')
+            ch in '0'..'9' -> KeyEvent.KEYCODE_0 + (ch - '0')
+            else -> KeyEvent.KEYCODE_UNKNOWN
         }
     }
     private fun commitText(text: String) {

@@ -217,16 +217,20 @@ fun RemappableKeyView(key: KeyDefinition) {
     var popupHorizontalShiftDp by remember { mutableStateOf(0.dp) }
 
     val isShiftActive = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
+    val isCtrlArmed = key.id == "ctrl" && viewModel.ctrlArmed.value
+    val isAltArmed = key.id == "alt" && viewModel.altArmed.value
+    val isModifierArmed = (key.type == KeyType.SHIFT && isShiftActive) || isCtrlArmed || isAltArmed
+
     val displayedChar = viewModel.resolveDisplayedChar(key)
 
     val keyBackground = when {
-        key.type == KeyType.SHIFT && isShiftActive -> Color(0xFF2563EB)
+        isModifierArmed -> Color(0xFF2563EB)
         key.type == KeyType.CHARACTER -> if (isDark) Color(0xFF1C1C1E) else Color.White
         else -> if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E7EB)
     }
 
     val keyTextColor = when {
-        key.type == KeyType.SHIFT && isShiftActive -> Color.White
+        isModifierArmed -> Color.White
         isDark -> Color.White
         else -> Color(0xFF111827)
     }
