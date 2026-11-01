@@ -28,13 +28,34 @@ object DefaultLayout {
                 KeyDefinition("u", "u", hint = "=", popups = listOf("=")),
                 KeyDefinition("i", "i", hint = "+", popups = listOf("+")),
                 KeyDefinition("o", "o", hint = "-", popups = listOf("-", "_")),
-                KeyDefinition("p", "p", hint = "|", popups = listOf("|", "/"))
+                KeyDefinition(
+                    id = "p",
+                    primaryChar = "p",
+                    hint = "|",
+                    secondaries = SecondaryBindings(
+                        center = "|",
+                        top = "/",
+                        bottom = "\\",
+                        left = "="
+                    )
+                )
             )
         )
 
         val rowTwo = KeyboardRow(
             listOf(
-                KeyDefinition("a", "a", hint = ";", popups = listOf(";", ":"), weight = 1.5f),
+                KeyDefinition(
+                    id = "a",
+                    primaryChar = "a",
+                    hint = ";",
+                    secondaries = SecondaryBindings(
+                        center = ";",
+                        top = ":",
+                        right = "@",
+                        bottom = "#"
+                    ),
+                    weight = 1.5f
+                ),
                 KeyDefinition("s", "s", hint = ":", popups = listOf(":")),
                 KeyDefinition("d", "d", hint = "\"", popups = listOf("\"")),
                 KeyDefinition("f", "f", hint = "'", popups = listOf("'")),
@@ -51,7 +72,18 @@ object DefaultLayout {
                 KeyDefinition("shift", "⇧", type = KeyType.SHIFT, weight = 1.5f),
                 KeyDefinition("z", "z", hint = ",", popups = listOf(",", "<")),
                 KeyDefinition("x", "x", hint = ".", popups = listOf(".", ">")),
-                KeyDefinition("c", "c", hint = "(", popups = listOf("(")),
+                KeyDefinition(
+                    id = "c",
+                    primaryChar = "c",
+                    hint = "(",
+                    secondaries = SecondaryBindings(
+                        center = "(",
+                        top = "{",
+                        right = "[",
+                        bottom = "]",
+                        left = ")"
+                    )
+                ),
                 KeyDefinition("v", "v", hint = ")", popups = listOf(")")),
                 KeyDefinition("b", "b", hint = "[", popups = listOf("[")),
                 KeyDefinition("n", "n", hint = "]", popups = listOf("]")),

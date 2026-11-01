@@ -147,6 +147,10 @@ class KeyboardViewModel : ViewModel() {
 
     fun selectPopup(symbol: String) {
         onTextCommitHandler?.invoke(symbol)
+        ctrlArmed.value = false
+        ctrlShiftArmed.value = false
+        altArmed.value = false
+        altShiftArmed.value = false
         if (shiftState.value == ShiftState.SHIFTED) {
             shiftState.value = ShiftState.OFF
         }

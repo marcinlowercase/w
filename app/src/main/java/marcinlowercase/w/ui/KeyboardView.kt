@@ -46,10 +46,12 @@ import kotlinx.coroutines.launch
 import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
 import marcinlowercase.w.model.KeyboardLayoutConfig
+import marcinlowercase.w.model.PopupDirection
+import marcinlowercase.w.model.SecondaryBindings
 import marcinlowercase.w.R
 
 object KeyboardDimens {
-    val popupHeadroom = 60.dp
+    val popupHeadroom = 100.dp
     val keyHeight = 53.dp
     val rowGap = 6.dp
     val popupCircleSize = keyHeight + rowGap
@@ -210,8 +212,10 @@ fun RemappableKeyView(key: KeyDefinition) {
     var isPressedDown by remember { mutableStateOf(false) }
     var showPopup by remember { mutableStateOf(false) }
     var selectedIndex by remember { mutableIntStateOf(-1) }
+    var selectedDirection by remember { mutableStateOf(PopupDirection.CENTER) }
     var shiftHoldAction by remember { mutableStateOf(ShiftHoldAction.NONE) }
     var popupHorizontalShiftDp by remember { mutableStateOf(0.dp) }
+    var popupVerticalShiftDp by remember { mutableStateOf(0.dp) }
 
     val isShiftActive = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
     val isCtrlArmed = key.id == "ctrl" && viewModel.ctrlArmed.value
@@ -236,6 +240,7 @@ fun RemappableKeyView(key: KeyDefinition) {
     val hintColor = if (isDark) Color(0xFF8E8E93) else Color(0xFF9CA3AF)
     val popupBg = if (isDark) Color(0xFF1C1C1E) else Color.White
     val popupBorder = if (isDark) Color(0xFF38383A) else Color(0xFFD1D5DB)
+    val unselectedPopupTextColor = if (isDark) Color.White else Color(0xFF111827)
 
     val visualWidthFraction = if (key.id == "a" || key.id == "l") 0.666667f else 1f
     val visualAlignment = when (key.id) {
@@ -339,34 +344,62 @@ fun RemappableKeyView(key: KeyDefinition) {
                                     break
                                 }
                             }
-                        } else if (key.popups.isNotEmpty()) {
-                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                            selectedIndex = 0
-                            showPopup = true
-
-                            val itemWidthPx = with(density) { KeyboardDimens.popupCircleSize.toPx() }
-
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                val change = event.changes.firstOrNull() ?: break
-                                if (change.pressed) {
-                                    val newIndex = (change.position.x / itemWidthPx).toInt().coerceIn(0, key.popups.lastIndex)
-                                    if (newIndex != selectedIndex) {
-                                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                                        selectedIndex = newIndex
-                                    }
-                                } else {
-                                    val symbol = key.popups.getOrNull(selectedIndex.coerceAtLeast(0)) ?: key.popups.first()
-                                    viewModel.selectPopup(symbol)
-                                    showPopup = false
-                                    break
-                                }
-                            }
                         } else {
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                val change = event.changes.firstOrNull() ?: break
-                                if (!change.pressed) break
+                            val sec = when {
+                                key.secondaries?.hasOptions() == true -> key.secondaries
+                                key.popups.isNotEmpty() -> when (key.popups.size) {
+                                    1 -> SecondaryBindings(center = key.popups[0])
+                                    2 -> SecondaryBindings(center = key.popups[0], right = key.popups[1])
+                                    3 -> SecondaryBindings(center = key.popups[0], top = key.popups[1], right = key.popups[2])
+                                    4 -> SecondaryBindings(center = key.popups[0], top = key.popups[1], right = key.popups[2], bottom = key.popups[3])
+                                    else -> SecondaryBindings(center = key.popups[0], top = key.popups[1], right = key.popups[2], bottom = key.popups[3], left = key.popups[4])
+                                }
+                                else -> null
+                            }
+
+                            if (sec?.hasOptions() == true) {
+                                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                selectedDirection = PopupDirection.CENTER
+                                showPopup = true
+
+                                val startX = down.position.x
+                                val startY = down.position.y
+                                val swipeThresholdPx = with(density) { 22.dp.toPx() }
+
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull() ?: break
+                                    if (change.pressed) {
+                                        val deltaX = change.position.x - startX
+                                        val deltaY = change.position.y - startY
+                                        val absX = kotlin.math.abs(deltaX)
+                                        val absY = kotlin.math.abs(deltaY)
+
+                                        val newDir = when {
+                                            absX < swipeThresholdPx && absY < swipeThresholdPx -> PopupDirection.CENTER
+                                            absY >= absX -> if (deltaY < 0 && sec.top != null) PopupDirection.TOP else if (deltaY > 0 && sec.bottom != null) PopupDirection.BOTTOM else PopupDirection.CENTER
+                                            else -> if (deltaX < 0 && sec.left != null) PopupDirection.LEFT else if (deltaX > 0 && sec.right != null) PopupDirection.RIGHT else PopupDirection.CENTER
+                                        }
+
+                                        if (newDir != selectedDirection) {
+                                            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                            selectedDirection = newDir
+                                        }
+                                    } else {
+                                        val symbol = sec.get(selectedDirection) ?: sec.center
+                                        if (symbol != null) {
+                                            viewModel.selectPopup(symbol)
+                                        }
+                                        showPopup = false
+                                        break
+                                    }
+                                }
+                            } else {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull() ?: break
+                                    if (!change.pressed) break
+                                }
                             }
                         }
                     }
@@ -385,8 +418,43 @@ fun RemappableKeyView(key: KeyDefinition) {
                 .onGloballyPositioned { coordinates ->
                     val rootWidth = coordinates.findRootCoordinates().size.width.toFloat()
                     val keyCenterInRoot = coordinates.positionInRoot().x + (coordinates.size.width / 2f)
-                    val itemsCount = if (key.type == KeyType.SHIFT) 1 else key.popups.size.coerceAtLeast(1)
-                    val popupHalfWidthPx = with(density) { ((KeyboardDimens.popupCircleSize * itemsCount) / 2f).toPx() }
+                    val keyTopInRoot = coordinates.positionInRoot().y
+
+                    val secOptions = when {
+                        key.secondaries?.hasOptions() == true -> key.secondaries
+                        key.popups.isNotEmpty() -> when (key.popups.size) {
+                            1 -> SecondaryBindings(center = key.popups[0])
+                            2 -> SecondaryBindings(center = key.popups[0], right = key.popups[1])
+                            3 -> SecondaryBindings(center = key.popups[0], top = key.popups[1], right = key.popups[2])
+                            4 -> SecondaryBindings(center = key.popups[0], top = key.popups[1], right = key.popups[2], bottom = key.popups[3])
+                            else -> SecondaryBindings(center = key.popups[0], top = key.popups[1], right = key.popups[2], bottom = key.popups[3], left = key.popups[4])
+                        }
+                        else -> null
+                    }
+
+                    val hasTop = secOptions?.top != null
+                    val hasBottom = secOptions?.bottom != null
+                    val rowsCount = when {
+                        hasTop && hasBottom -> 3
+                        hasTop || hasBottom -> 2
+                        else -> 1
+                    }
+                    val cardHeightPx = with(density) { ((KeyboardDimens.popupCircleSize * rowsCount) + 8.dp).toPx() }
+                    val idealTopInRoot = keyTopInRoot - cardHeightPx - with(density) { 6.dp.toPx() }
+                    val shiftYPx = if (idealTopInRoot < 0f) -idealTopInRoot else 0f
+                    val shiftYDp = with(density) { shiftYPx.toDp() }
+                    if (popupVerticalShiftDp != shiftYDp) {
+                        popupVerticalShiftDp = shiftYDp
+                    }
+
+                    val hasLeft = secOptions?.left != null
+                    val hasRight = secOptions?.right != null
+                    val colsCount = when {
+                        hasLeft && hasRight -> 3
+                        hasLeft || hasRight -> 2
+                        else -> 1
+                    }
+                    val popupHalfWidthPx = with(density) { ((KeyboardDimens.popupCircleSize * colsCount) / 2f).toPx() }
 
                     val popupLeftInRoot = keyCenterInRoot - popupHalfWidthPx
                     val popupRightInRoot = keyCenterInRoot + popupHalfWidthPx
@@ -469,7 +537,7 @@ fun RemappableKeyView(key: KeyDefinition) {
                     fontSize = 26.sp,
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = FontFamily.Monospace,
-                    color = keyTextColor
+                    color = unselectedPopupTextColor
                 )
             }
         }
@@ -502,7 +570,7 @@ fun RemappableKeyView(key: KeyDefinition) {
 
                     shiftOptions.forEach { action ->
                         val isSelected = shiftHoldAction == action
-                        val itemColor = if (isSelected) Color.White else keyTextColor
+                        val itemColor = if (isSelected) Color.White else unselectedPopupTextColor
 
                         Box(
                             modifier = Modifier.requiredSize(KeyboardDimens.popupCircleSize),
@@ -540,49 +608,218 @@ fun RemappableKeyView(key: KeyDefinition) {
                         }
                     }
                 }
-            } else if (key.popups.isNotEmpty()) {
-                val totalRowWidth = KeyboardDimens.popupCircleSize * key.popups.size
+            } else {
+                val sec = when {
+                    key.secondaries?.hasOptions() == true -> key.secondaries
+                    key.popups.isNotEmpty() -> when (key.popups.size) {
+                        1 -> SecondaryBindings(center = key.popups[0])
+                        2 -> SecondaryBindings(center = key.popups[0], right = key.popups[1])
+                        3 -> SecondaryBindings(center = key.popups[0], top = key.popups[1], right = key.popups[2])
+                        4 -> SecondaryBindings(center = key.popups[0], top = key.popups[1], right = key.popups[2], bottom = key.popups[3])
+                        else -> SecondaryBindings(center = key.popups[0], top = key.popups[1], right = key.popups[2], bottom = key.popups[3], left = key.popups[4])
+                    }
+                    else -> null
+                }
 
-                Row(
-                    modifier = Modifier
-                        .align(visualAlignment)
-                        .offset(x = popupHorizontalShiftDp, y = (-60).dp)
-                        .wrapContentSize(unbounded = true)
-                        .requiredWidth(totalRowWidth)
-                        .requiredHeight(KeyboardDimens.popupCircleSize)
-                        .shadow(elevation = 6.dp, shape = CircleShape)
-                        .background(popupBg, CircleShape)
-                        .border(0.5.dp, popupBorder, CircleShape),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    key.popups.forEachIndexed { idx, symbol ->
-                        val isSelected = idx == selectedIndex
-                        Box(
-                            modifier = Modifier.requiredSize(KeyboardDimens.popupCircleSize),
-                            contentAlignment = Alignment.Center
+                if (sec?.hasOptions() == true) {
+                    val slotSize = KeyboardDimens.popupCircleSize
+                    val cardPadding = 4.dp
+                    val cardCornerRadius = slotSize / 2
+
+                    val hasTop = sec.top != null
+                    val hasBottom = sec.bottom != null
+                    val hasLeft = sec.left != null
+                    val hasRight = sec.right != null
+
+                    val rowsCount = when {
+                        hasTop && hasBottom -> 3
+                        hasTop || hasBottom -> 2
+                        else -> 1
+                    }
+
+                    val columnsCount = when {
+                        hasLeft && hasRight -> 3
+                        hasLeft || hasRight -> 2
+                        else -> 1
+                    }
+
+                    val cardWidth = (slotSize * columnsCount) + (cardPadding * 2)
+                    val cardHeight = (slotSize * rowsCount) + (cardPadding * 2)
+
+                    val xAlignmentOffset = when {
+                        !hasLeft && hasRight -> (slotSize / 2)
+                        hasLeft && !hasRight -> -(slotSize / 2)
+                        else -> 0.dp
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .align(visualAlignment)
+                            .offset(x = popupHorizontalShiftDp + xAlignmentOffset, y = -cardHeight - 6.dp + popupVerticalShiftDp)
+                            .wrapContentSize(unbounded = true)
+                            .requiredWidth(cardWidth)
+                            .requiredHeight(cardHeight)
+                            .shadow(elevation = 8.dp, shape = RoundedCornerShape(cardCornerRadius))
+                            .background(popupBg, RoundedCornerShape(cardCornerRadius))
+                            .border(0.5.dp, popupBorder, RoundedCornerShape(cardCornerRadius))
+                            .padding(cardPadding)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.SpaceBetween
                         ) {
-                            if (isSelected) {
-                                Box(
-                                    modifier = Modifier
-                                        .requiredSize(KeyboardDimens.popupCircleSize - 6.dp)
-                                        .background(Color(0xFF2563EB), CircleShape)
-                                )
+                            if (hasTop) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    if (hasLeft) Spacer(modifier = Modifier.requiredSize(slotSize))
+
+                                    Box(
+                                        modifier = Modifier.requiredSize(slotSize),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        sec.top?.let { symbol ->
+                                            val isSelected = selectedDirection == PopupDirection.TOP
+                                            if (isSelected) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .requiredSize(slotSize - 6.dp)
+                                                        .background(Color(0xFF2563EB), CircleShape)
+                                                )
+                                            }
+                                            Text(
+                                                text = symbol,
+                                                color = if (isSelected) Color.White else unselectedPopupTextColor,
+                                                fontSize = 26.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                    }
+
+                                    if (hasRight) Spacer(modifier = Modifier.requiredSize(slotSize))
+                                }
                             }
-                            Text(
-                                text = symbol,
-                                color = if (isSelected) Color.White else keyTextColor,
-                                fontSize = 26.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                fontFamily = FontFamily.Monospace
-                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                if (hasLeft) {
+                                    Box(
+                                        modifier = Modifier.requiredSize(slotSize),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        sec.left?.let { symbol ->
+                                            val isSelected = selectedDirection == PopupDirection.LEFT
+                                            if (isSelected) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .requiredSize(slotSize - 6.dp)
+                                                        .background(Color(0xFF2563EB), CircleShape)
+                                                )
+                                            }
+                                            Text(
+                                                text = symbol,
+                                                color = if (isSelected) Color.White else unselectedPopupTextColor,
+                                                fontSize = 26.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Box(
+                                    modifier = Modifier.requiredSize(slotSize),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    sec.center?.let { symbol ->
+                                        val isSelected = selectedDirection == PopupDirection.CENTER
+                                        if (isSelected) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .requiredSize(slotSize - 6.dp)
+                                                    .background(Color(0xFF2563EB), CircleShape)
+                                            )
+                                        }
+                                        Text(
+                                            text = symbol,
+                                            color = if (isSelected) Color.White else unselectedPopupTextColor,
+                                            fontSize = 26.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontFamily = FontFamily.Monospace
+                                        )
+                                    }
+                                }
+
+                                if (hasRight) {
+                                    Box(
+                                        modifier = Modifier.requiredSize(slotSize),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        sec.right?.let { symbol ->
+                                            val isSelected = selectedDirection == PopupDirection.RIGHT
+                                            if (isSelected) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .requiredSize(slotSize - 6.dp)
+                                                        .background(Color(0xFF2563EB), CircleShape)
+                                                )
+                                            }
+                                            Text(
+                                                text = symbol,
+                                                color = if (isSelected) Color.White else unselectedPopupTextColor,
+                                                fontSize = 26.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (hasBottom) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    if (hasLeft) Spacer(modifier = Modifier.requiredSize(slotSize))
+
+                                    Box(
+                                        modifier = Modifier.requiredSize(slotSize),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        sec.bottom?.let { symbol ->
+                                            val isSelected = selectedDirection == PopupDirection.BOTTOM
+                                            if (isSelected) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .requiredSize(slotSize - 6.dp)
+                                                        .background(Color(0xFF2563EB), CircleShape)
+                                                )
+                                            }
+                                            Text(
+                                                text = symbol,
+                                                color = if (isSelected) Color.White else unselectedPopupTextColor,
+                                                fontSize = 26.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                    }
+
+                                    if (hasRight) Spacer(modifier = Modifier.requiredSize(slotSize))
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-        }
     }
-
+}
 
 @Composable
 fun SpaceKeyView(key: KeyDefinition) {
