@@ -588,8 +588,6 @@ fun SpaceKeyView(key: KeyDefinition) {
     val viewModel = LocalKeyboardViewModel.current
     val view = LocalView.current
     val isDark = isSystemInDarkTheme()
-    var accumulatedDrag by remember { mutableFloatStateOf(0f) }
-    val stepThreshold = 30f
 
     val spaceBg = if (isDark) Color(0xFF1C1C1E) else Color.White
     val spaceBorder = if (isDark) Color(0xFF38383A) else Color(0xFFD1D5DB)
@@ -602,41 +600,49 @@ fun SpaceKeyView(key: KeyDefinition) {
             .clip(RoundedCornerShape(KeyboardDimens.keyCornerRadius))
             .border(0.5.dp, spaceBorder, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
             .pointerInput(key.id) {
-                detectTapGestures(
-                    onPress = {
-                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                        val released = tryAwaitRelease()
-                        if (released) {
-                            viewModel.pressKey(key)
-                        }
-                    }
-                )
-            }
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { accumulatedDrag = 0f },
-                    onDrag = { _, dragAmount ->
-                        accumulatedDrag += dragAmount.x
-                        if (kotlin.math.abs(accumulatedDrag) >= stepThreshold) {
-                            val steps = (accumulatedDrag / stepThreshold).toInt()
-                            if (steps != 0) {
-                                val moved = viewModel.glideCursor(steps)
-                                if (moved) {
-                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+
+                    var accumulatedDrag = 0f
+                    val stepThreshold = 30f
+                    var hasGlided = false
+
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull() ?: break
+
+                        if (!change.pressed) {
+                            if (!hasGlided) {
+                                viewModel.pressKey(key)
+                            } else {
+                                viewModel.onGlideEnd()
+                            }
+                            break
+                        } else {
+                            val dragX = change.position.x - change.previousPosition.x
+                            accumulatedDrag += dragX
+
+                            if (kotlin.math.abs(accumulatedDrag) >= stepThreshold) {
+                                hasGlided = true
+                                val steps = (accumulatedDrag / stepThreshold).toInt()
+                                if (steps != 0) {
+                                    val moved = viewModel.glideCursor(steps)
+                                    if (moved) {
+                                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                    }
+                                    accumulatedDrag -= steps * stepThreshold
                                 }
-                                accumulatedDrag -= steps * stepThreshold
                             }
                         }
-                    },
-                    onDragEnd = { viewModel.onGlideEnd() },
-                    onDragCancel = { viewModel.onGlideEnd() }
-                )
+                    }
+                }
             },
         color = spaceBg
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
-                text = "",
+                text = "space",
                 color = spaceTextColor,
                 fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace

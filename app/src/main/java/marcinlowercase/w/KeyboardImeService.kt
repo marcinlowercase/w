@@ -113,6 +113,42 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
     private fun handleKeyPress(key: KeyDefinition, metaState: Int = 0): Boolean {
         val ic = currentInputConnection ?: return false
 
+        if (key.type == KeyType.BACKSPACE) {
+            val selected = ic.getSelectedText(0)
+            if (!selected.isNullOrEmpty()) {
+                ic.commitText("", 1)
+                return true
+            }
+
+            val isShiftOn = (metaState and KeyEvent.META_SHIFT_ON) != 0
+            val isCtrlOn = (metaState and KeyEvent.META_CTRL_ON) != 0
+
+            if (isCtrlOn) {
+                val now = android.os.SystemClock.uptimeMillis()
+                ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL, 0, metaState))
+                ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL, 0, metaState))
+                return true
+            }
+
+            return if (isShiftOn) {
+                val textAfter = ic.getTextAfterCursor(1, 0)
+                if (!textAfter.isNullOrEmpty()) {
+                    ic.deleteSurroundingText(0, 1)
+                    true
+                } else {
+                    false
+                }
+            } else {
+                val textBefore = ic.getTextBeforeCursor(1, 0)
+                if (!textBefore.isNullOrEmpty()) {
+                    ic.deleteSurroundingText(1, 0)
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+
         if (metaState != 0) {
             val keyCode = resolveKeyCode(key)
             if (keyCode != KeyEvent.KEYCODE_UNKNOWN) {
@@ -132,21 +168,7 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
                 commitText(" ")
                 true
             }
-            KeyType.BACKSPACE -> {
-                val textBefore = ic.getTextBeforeCursor(1, 0)
-                val selected = ic.getSelectedText(0)
-                when {
-                    !selected.isNullOrEmpty() -> {
-                        ic.commitText("", 1)
-                        true
-                    }
-                    !textBefore.isNullOrEmpty() -> {
-                        ic.deleteSurroundingText(1, 0)
-                        true
-                    }
-                    else -> false
-                }
-            }
+            KeyType.BACKSPACE -> false
             KeyType.ENTER -> {
                 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
                 true
