@@ -104,10 +104,7 @@ fun KeyboardView(
 
                 config.rows.forEach { row ->
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = KeyboardDimens.rowGap / 2),
-                        horizontalArrangement = Arrangement.spacedBy(KeyboardDimens.keyGap)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         row.keys.forEach { key ->
                             if (key.type == KeyType.SPACER) {
@@ -247,33 +244,13 @@ fun RemappableKeyView(key: KeyDefinition) {
         else -> Alignment.Center
     }
 
-    val popupMenuOffsetPx = with(density) { (-64).dp.roundToPx() }
+    val cellHeight = KeyboardDimens.keyHeight + KeyboardDimens.rowGap
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(KeyboardDimens.keyHeight)
+            .height(cellHeight)
             .zIndex(if (isPressedDown || showPopup) 10f else 0f)
-            .onGloballyPositioned { coordinates ->
-                val rootWidth = coordinates.findRootCoordinates().size.width.toFloat()
-                val keyCenterInRoot = coordinates.positionInRoot().x + (coordinates.size.width / 2f)
-                val itemsCount = if (key.type == KeyType.SHIFT) 1 else key.popups.size.coerceAtLeast(1)
-                val popupHalfWidthPx = with(density) { ((KeyboardDimens.popupCircleSize * itemsCount) / 2f).toPx() }
-
-                val popupLeftInRoot = keyCenterInRoot - popupHalfWidthPx
-                val popupRightInRoot = keyCenterInRoot + popupHalfWidthPx
-
-                val shiftPx = when {
-                    popupLeftInRoot < 0f -> -popupLeftInRoot
-                    popupRightInRoot > rootWidth -> rootWidth - popupRightInRoot
-                    else -> 0f
-                }
-
-                val shiftDp = with(density) { shiftPx.toDp() }
-                if (popupHorizontalShiftDp != shiftDp) {
-                    popupHorizontalShiftDp = shiftDp
-                }
-            }
             .pointerInput(key.id) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
@@ -401,6 +378,30 @@ fun RemappableKeyView(key: KeyDefinition) {
                 .fillMaxWidth(visualWidthFraction)
                 .fillMaxHeight()
                 .align(visualAlignment)
+                .padding(
+                    horizontal = KeyboardDimens.keyGap / 2,
+                    vertical = KeyboardDimens.rowGap / 2
+                )
+                .onGloballyPositioned { coordinates ->
+                    val rootWidth = coordinates.findRootCoordinates().size.width.toFloat()
+                    val keyCenterInRoot = coordinates.positionInRoot().x + (coordinates.size.width / 2f)
+                    val itemsCount = if (key.type == KeyType.SHIFT) 1 else key.popups.size.coerceAtLeast(1)
+                    val popupHalfWidthPx = with(density) { ((KeyboardDimens.popupCircleSize * itemsCount) / 2f).toPx() }
+
+                    val popupLeftInRoot = keyCenterInRoot - popupHalfWidthPx
+                    val popupRightInRoot = keyCenterInRoot + popupHalfWidthPx
+
+                    val shiftPx = when {
+                        popupLeftInRoot < 0f -> -popupLeftInRoot
+                        popupRightInRoot > rootWidth -> rootWidth - popupRightInRoot
+                        else -> 0f
+                    }
+
+                    val shiftDp = with(density) { shiftPx.toDp() }
+                    if (popupHorizontalShiftDp != shiftDp) {
+                        popupHorizontalShiftDp = shiftDp
+                    }
+                }
                 .clip(RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                 .background(keyBackground)
                 .border(0.5.dp, keyBorderColor, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
@@ -592,13 +593,12 @@ fun SpaceKeyView(key: KeyDefinition) {
     val spaceBg = if (isDark) Color(0xFF1C1C1E) else Color.White
     val spaceBorder = if (isDark) Color(0xFF38383A) else Color(0xFFD1D5DB)
     val spaceTextColor = if (isDark) Color(0xFF8E8E93) else Color(0xFF9CA3AF)
+    val cellHeight = KeyboardDimens.keyHeight + KeyboardDimens.rowGap
 
-    Surface(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(KeyboardDimens.keyHeight)
-            .clip(RoundedCornerShape(KeyboardDimens.keyCornerRadius))
-            .border(0.5.dp, spaceBorder, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+            .height(cellHeight)
             .pointerInput(key.id) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
@@ -637,10 +637,19 @@ fun SpaceKeyView(key: KeyDefinition) {
                         }
                     }
                 }
-            },
-        color = spaceBg
+            }
+            .padding(
+                horizontal = KeyboardDimens.keyGap / 2,
+                vertical = KeyboardDimens.rowGap / 2
+            )
+            .clip(RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+            .background(spaceBg)
+            .border(0.5.dp, spaceBorder, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
             Text(
                 text = "space",
                 color = spaceTextColor,
