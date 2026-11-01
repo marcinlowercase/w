@@ -307,11 +307,19 @@ fun RemappableKeyView(key: KeyDefinition) {
                         return@awaitEachGesture
                     }
 
-                    val up = withTimeoutOrNull(220L) {
-                        waitForUpOrCancellation()
+                    var fingerReleasedEarly = false
+                    withTimeoutOrNull(220L) {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull() ?: break
+                            if (!change.pressed) {
+                                fingerReleasedEarly = true
+                                break
+                            }
+                        }
                     }
 
-                    if (up != null) {
+                    if (fingerReleasedEarly) {
                         isPressedDown = false
                         if (key.type == KeyType.SHIFT) {
                             viewModel.isShiftPhysicallyHeld.value = false
@@ -371,14 +379,18 @@ fun RemappableKeyView(key: KeyDefinition) {
                                         selectedIndex = newIndex
                                     }
                                 } else {
-                                    val symbol = key.popups.getOrNull(selectedIndex) ?: key.popups.first()
+                                    val symbol = key.popups.getOrNull(selectedIndex.coerceAtLeast(0)) ?: key.popups.first()
                                     viewModel.selectPopup(symbol)
                                     showPopup = false
                                     break
                                 }
                             }
                         } else {
-                            waitForUpOrCancellation()
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull() ?: break
+                                if (!change.pressed) break
+                            }
                         }
                     }
                 }
