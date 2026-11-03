@@ -26,9 +26,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import marcinlowercase.w.data.KeyboardPreferences
 import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
+import marcinlowercase.w.model.KeyboardLayoutConfig
 import marcinlowercase.w.model.ShiftState
 import marcinlowercase.w.ui.KeyboardDimens
 import marcinlowercase.w.ui.KeyboardView
@@ -76,6 +78,19 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         serviceScope.launch {
             preferences.bottomPaddingDp.collect { padding ->
                 viewModel.bottomChinPaddingDp.value = padding
+            }
+        }
+        serviceScope.launch {
+            preferences.layoutConfigJson.collect { jsonString ->
+                if (!jsonString.isNullOrEmpty()) {
+                    runCatching {
+                        val parsed = Json.decodeFromString<KeyboardLayoutConfig>(jsonString)
+                        viewModel.layoutConfig.value = parsed
+                    }
+                } else {
+                    // Revert to default if cleared/reset
+                    viewModel.layoutConfig.value = marcinlowercase.w.model.DefaultLayout.create()
+                }
             }
         }
         savedStateRegistryController.performRestore(null)

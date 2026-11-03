@@ -50,6 +50,7 @@ enum class KeyType {
 data class KeyDefinition(
     val id: String,
     val primaryChar: String,
+    val displayLabel: String? = null,
     val hint: String? = null,
     val popups: List<String> = emptyList(),
     val secondaries: SecondaryBindings? = null,

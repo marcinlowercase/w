@@ -57,7 +57,9 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -72,7 +74,7 @@ import marcinlowercase.w.model.SecondaryBindings
 import kotlin.time.Duration.Companion.milliseconds
 
 object KeyboardDimens {
-    val popupHeadroom = 160.dp
+    val popupHeadroom = 300.dp
     val keyHeight = 53.dp
     val rowGap = 4.dp
     val keyGap = 4.dp
@@ -91,8 +93,10 @@ fun KeyboardView(
     val density = LocalDensity.current
     var shiftKeyWidthDp by remember { mutableStateOf<Dp?>(null) }
 
+    // Explicitly observe the State so recomposition triggers when layout changes
+    val config by viewModel.layoutConfig
+
     CompositionLocalProvider(LocalKeyboardViewModel provides viewModel) {
-        val config = viewModel.layoutConfig.value
 
         val isDark = isSystemInDarkTheme()
         val keyboardBgColor = if (isDark) Color.Black else Color.White
@@ -223,6 +227,8 @@ enum class ShiftHoldAction {
 @Composable
 fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     val viewModel = LocalKeyboardViewModel.current
+    val liveKey = viewModel.layoutConfig.value.rows.flatMap { it.keys }
+        .find { it.id == key.id } ?: key
     val view = LocalView.current
     val density = LocalDensity.current
     val isDark = isSystemInDarkTheme()
@@ -246,11 +252,11 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     )
 
     val isShiftActive = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
-    val isCtrlArmed = key.id == "ctrl" && viewModel.ctrlArmed.value
-    val isAltArmed = key.id == "alt" && viewModel.altArmed.value
-    val isModifierArmed = (key.type == KeyType.SHIFT && isShiftActive) || isCtrlArmed || isAltArmed
+    val isCtrlArmed = liveKey.id == "ctrl" && viewModel.ctrlArmed.value
+    val isAltArmed = liveKey.id == "alt" && viewModel.altArmed.value
+    val isModifierArmed = (liveKey.type == KeyType.SHIFT && isShiftActive) || isCtrlArmed || isAltArmed
 
-    val displayedChar = viewModel.resolveDisplayedChar(key)
+    val displayedChar = viewModel.resolveDisplayedChar(liveKey)
 
     val keyBackground = when {
         isModifierArmed -> Color(0xFF2563EB)
@@ -397,10 +403,13 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                         val absX = kotlin.math.abs(deltaX)
                                         val absY = kotlin.math.abs(deltaY)
 
+                                        val isRightEdgeKey = key.id in listOf("0", "p", "l")
+                                        val canSwipeRight = sec.right != null && !isRightEdgeKey
+
                                         val newDir = when {
                                             absX < swipeThresholdPx && absY < swipeThresholdPx -> PopupDirection.CENTER
                                             absY >= absX -> if (deltaY < 0 && sec.top != null) PopupDirection.TOP else if (deltaY > 0 && sec.bottom != null) PopupDirection.BOTTOM else PopupDirection.CENTER
-                                            else -> if (deltaX < 0 && sec.left != null) PopupDirection.LEFT else if (deltaX > 0 && sec.right != null) PopupDirection.RIGHT else PopupDirection.CENTER
+                                            else -> if (deltaX < 0 && sec.left != null) PopupDirection.LEFT else if (deltaX > 0 && canSwipeRight) PopupDirection.RIGHT else PopupDirection.CENTER
                                         }
 
                                         if (newDir != selectedDirection) {
@@ -409,10 +418,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                         }
                                     } else {
                                         viewModel.activePopupKeyId.value = null
-                                        val symbol = sec.get(selectedDirection) ?: sec.center
-                                        if (symbol != null) {
-                                            viewModel.selectPopup(symbol)
-                                        }
+                                        viewModel.commitSecondary(liveKey.id, selectedDirection)
                                         showPopup = false
                                         break
                                     }
@@ -513,12 +519,26 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                         .align(Alignment.Center)
                 )
             } else {
+                val visualLabel = key.displayLabel ?: displayedChar
+                val labelFontSize = if (key.type == KeyType.MODIFIER) {
+                    13.sp
+                } else {
+                    when (visualLabel.length) {
+                        0, 1 -> 20.sp
+                        2 -> 15.sp
+                        3 -> 13.sp
+                        else -> 11.sp
+                    }
+                }
+
                 Text(
-                    text = displayedChar,
+                    text = visualLabel,
                     color = keyTextColor,
-                    fontSize = if (key.type == KeyType.MODIFIER) 13.sp else 20.sp,
+                    fontSize = labelFontSize,
                     fontWeight = if (key.type == KeyType.MODIFIER) FontWeight.SemiBold else FontWeight.Medium,
                     fontFamily = FontFamily.Monospace,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
@@ -554,12 +574,22 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                     .padding(primaryPopupMargin),
                 contentAlignment = Alignment.Center
             ) {
+                val previewLabel = key.displayLabel ?: displayedChar
+                val previewFontSize = when (previewLabel.length) {
+                    0, 1 -> 26.sp
+                    2 -> 20.sp
+                    3 -> 16.sp
+                    else -> 13.sp
+                }
+
                 Text(
-                    text = displayedChar,
-                    fontSize = 26.sp,
+                    text = previewLabel,
+                    fontSize = previewFontSize,
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = FontFamily.Monospace,
-                    color = Color.White
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -707,12 +737,21 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
+                                        val topFontSize = when (sec.top.length) {
+                                            0, 1 -> 22.sp
+                                            2 -> 16.sp
+                                            3 -> 13.sp
+                                            else -> 11.sp
+                                        }
+
                                         Text(
                                             text = sec.top,
                                             color = if (isSelected) Color.White else unselectedPopupTextColor,
-                                            fontSize = 22.sp,
+                                            fontSize = topFontSize,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontFamily = FontFamily.Monospace
+                                            fontFamily = FontFamily.Monospace,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
 
@@ -736,12 +775,21 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
+                                        val leftFontSize = when (sec.left.length) {
+                                            0, 1 -> 22.sp
+                                            2 -> 16.sp
+                                            3 -> 13.sp
+                                            else -> 11.sp
+                                        }
+
                                         Text(
                                             text = sec.left,
                                             color = if (isSelected) Color.White else unselectedPopupTextColor,
-                                            fontSize = 22.sp,
+                                            fontSize = leftFontSize,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontFamily = FontFamily.Monospace
+                                            fontFamily = FontFamily.Monospace,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -757,12 +805,22 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
+                                    val centerText = sec.center ?: ""
+                                    val centerFontSize = when (centerText.length) {
+                                        0, 1 -> 22.sp
+                                        2 -> 16.sp
+                                        3 -> 13.sp
+                                        else -> 11.sp
+                                    }
+
                                     Text(
-                                        text = sec.center ?: "",
+                                        text = centerText,
                                         color = if (isCenterSelected) Color.White else unselectedPopupTextColor,
-                                        fontSize = 22.sp,
+                                        fontSize = centerFontSize,
                                         fontWeight = FontWeight.SemiBold,
-                                        fontFamily = FontFamily.Monospace
+                                        fontFamily = FontFamily.Monospace,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
 
@@ -778,12 +836,21 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
+                                        val rightFontSize = when (sec.right.length) {
+                                            0, 1 -> 22.sp
+                                            2 -> 16.sp
+                                            3 -> 13.sp
+                                            else -> 11.sp
+                                        }
+
                                         Text(
                                             text = sec.right,
                                             color = if (isSelected) Color.White else unselectedPopupTextColor,
-                                            fontSize = 22.sp,
+                                            fontSize = rightFontSize,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontFamily = FontFamily.Monospace
+                                            fontFamily = FontFamily.Monospace,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -807,12 +874,21 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
+                                        val bottomFontSize = when (sec.bottom.length) {
+                                            0, 1 -> 22.sp
+                                            2 -> 16.sp
+                                            3 -> 13.sp
+                                            else -> 11.sp
+                                        }
+
                                         Text(
                                             text = sec.bottom,
                                             color = if (isSelected) Color.White else unselectedPopupTextColor,
-                                            fontSize = 22.sp,
+                                            fontSize = bottomFontSize,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontFamily = FontFamily.Monospace
+                                            fontFamily = FontFamily.Monospace,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                     }
 

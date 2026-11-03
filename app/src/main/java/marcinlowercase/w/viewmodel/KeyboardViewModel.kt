@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import marcinlowercase.w.model.DefaultLayout
 import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
+import marcinlowercase.w.model.PopupDirection
+import marcinlowercase.w.model.SecondaryBindings
 import marcinlowercase.w.model.ShiftState
 
 class KeyboardViewModel : ViewModel() {
@@ -168,5 +170,30 @@ class KeyboardViewModel : ViewModel() {
             shiftState.value = ShiftState.OFF
         }
         onGlideEndHandler?.invoke()
+    }
+
+    fun getKey(keyId: String): KeyDefinition {
+        return layoutConfig.value.rows.flatMap { it.keys }.find { it.id == keyId }
+            ?: layoutConfig.value.ribbon.find { it.id == keyId }
+            ?: KeyDefinition(id = keyId, primaryChar = keyId)
+    }
+
+    fun commitSecondary(keyId: String, direction: PopupDirection) {
+        val currentKey = getKey(keyId)
+        val sec = when {
+            currentKey.secondaries?.hasOptions() == true -> currentKey.secondaries
+            currentKey.popups.isNotEmpty() -> when (currentKey.popups.size) {
+                1 -> SecondaryBindings(center = currentKey.popups[0])
+                2 -> SecondaryBindings(center = currentKey.popups[0], right = currentKey.popups[1])
+                3 -> SecondaryBindings(center = currentKey.popups[0], top = currentKey.popups[1], right = currentKey.popups[2])
+                4 -> SecondaryBindings(center = currentKey.popups[0], top = currentKey.popups[1], right = currentKey.popups[2], bottom = currentKey.popups[3])
+                else -> SecondaryBindings(center = currentKey.popups[0], top = currentKey.popups[1], right = currentKey.popups[2], bottom = currentKey.popups[3], left = currentKey.popups[4])
+            }
+            else -> null
+        }
+        val symbol = sec?.get(direction) ?: sec?.center
+        if (symbol != null) {
+            selectPopup(symbol)
+        }
     }
 }
