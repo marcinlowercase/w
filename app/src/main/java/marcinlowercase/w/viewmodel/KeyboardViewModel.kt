@@ -140,7 +140,7 @@ class KeyboardViewModel : ViewModel() {
             altArmed.value = false
             altShiftArmed.value = false
         }
-        if ((key.type == KeyType.CHARACTER || key.type == KeyType.BACKSPACE) && shiftState.value == ShiftState.SHIFTED) {
+        if ((key.type == KeyType.CHARACTER || key.type == KeyType.BACKSPACE || key.type == KeyType.SPACE) && shiftState.value == ShiftState.SHIFTED) {
             shiftState.value = ShiftState.OFF
         }
 
@@ -163,6 +163,9 @@ class KeyboardViewModel : ViewModel() {
     }
 
     fun onGlideEnd() {
+        if (shiftState.value == ShiftState.SHIFTED) {
+            shiftState.value = ShiftState.OFF
+        }
         onGlideEndHandler?.invoke()
     }
 }

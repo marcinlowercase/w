@@ -1,6 +1,10 @@
 package marcinlowercase.w.ui
 
 import android.view.HapticFeedbackConstants
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -42,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.findRootCoordinates
@@ -228,6 +233,16 @@ fun RemappableKeyView(key: KeyDefinition) {
     var popupHorizontalShiftDp by remember { mutableStateOf(0.dp) }
     var keycapCenterOffsetInCellDp by remember { mutableStateOf(0.dp) }
     var keycapWidthDp by remember { mutableStateOf(0.dp) }
+
+    val popupTransitionProgress by animateFloatAsState(
+        targetValue = if (showPopup) 1f else 0f,
+        animationSpec = if (showPopup) {
+            tween(durationMillis = 70, easing = FastOutSlowInEasing)
+        } else {
+            snap()
+        },
+        label = "popupTransition"
+    )
 
     val isShiftActive = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
     val isCtrlArmed = key.id == "ctrl" && viewModel.ctrlArmed.value
@@ -532,13 +547,18 @@ fun RemappableKeyView(key: KeyDefinition) {
                     .requiredWidth(primaryPopupWidth)
                     .requiredHeight(primaryPopupHeight)
                     .graphicsLayer {
-                        alpha = if (isPressedDown && !showPopup) 1f else 0f
+                        val previewAlpha = if (isPressedDown && !showPopup) {
+                            1f
+                        } else if (showPopup) {
+                            1f - popupTransitionProgress
+                        } else {
+                            0f
+                        }
+                        alpha = previewAlpha
                     }
-                    .shadow(elevation = 6.dp, shape = RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                     .background(Color(0xFF2563EB), RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                     .border(0.5.dp, Color(0xFF2563EB), RoundedCornerShape(KeyboardDimens.keyCornerRadius))
-                    .padding(primaryPopupMargin)
-                ,
+                    .padding(primaryPopupMargin),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -566,7 +586,12 @@ fun RemappableKeyView(key: KeyDefinition) {
                         .wrapContentSize(unbounded = true)
                         .requiredWidth(shiftPopupWidth)
                         .requiredHeight(shiftPopupHeight)
-                        .shadow(elevation = 6.dp, shape = RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                        .graphicsLayer {
+                            alpha = popupTransitionProgress
+                            scaleX = 0.88f + (0.12f * popupTransitionProgress)
+                            scaleY = 0.88f + (0.12f * popupTransitionProgress)
+                            transformOrigin = TransformOrigin(0.5f, 1f)
+                        }
                         .background(popupBg, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                         .border(0.5.dp, popupBorder, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                         .padding(popupMargin)
@@ -657,7 +682,12 @@ fun RemappableKeyView(key: KeyDefinition) {
                             .wrapContentSize(unbounded = true)
                             .requiredWidth(popupWidth)
                             .requiredHeight(popupHeight)
-                            .shadow(elevation = 6.dp, shape = RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                            .graphicsLayer {
+                                alpha = popupTransitionProgress
+                                scaleX = 0.88f + (0.12f * popupTransitionProgress)
+                                scaleY = 0.88f + (0.12f * popupTransitionProgress)
+                                transformOrigin = TransformOrigin(0.5f, 1f)
+                            }
                             .background(popupBg, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                             .border(0.5.dp, popupBorder, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                             .padding(popupMargin)
