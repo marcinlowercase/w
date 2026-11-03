@@ -38,7 +38,6 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
 
     private var currentSelStart = 0
     private var currentSelEnd = 0
-    private var isSelectAllPending = false
 
     override fun onStartInput(attribute: android.view.inputmethod.EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
@@ -57,13 +56,6 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
         currentSelStart = newSelStart
         currentSelEnd = newSelEnd
-
-        if (isSelectAllPending) {
-            val docEnd = kotlin.math.max(newSelStart, newSelEnd)
-            rememberedAnchor = 0
-            rememberedActiveHead = docEnd
-            isSelectAllPending = false
-        }
     }
 
     override val lifecycle: Lifecycle get() = lifecycleRegistry
@@ -251,11 +243,8 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
                     return true
                 }
                 "a" -> {
-                    isSelectAllPending = true
-                    val currentMax = kotlin.math.max(currentSelStart, currentSelEnd)
-                    rememberedAnchor = 0
-                    rememberedActiveHead = currentMax
-
+                    rememberedAnchor = null
+                    rememberedActiveHead = null
                     val selectedAll = ic.performContextMenuAction(android.R.id.selectAll)
                     if (!selectedAll) {
                         val now = android.os.SystemClock.uptimeMillis()
@@ -354,13 +343,24 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         val ic = currentInputConnection ?: return false
 
         if (!isSelecting) {
-            val startFrom = rememberedActiveHead ?: kotlin.math.max(currentSelStart, currentSelEnd)
+            val hasSelection = currentSelStart != currentSelEnd
+            val selMin = kotlin.math.min(currentSelStart, currentSelEnd)
+            val selMax = kotlin.math.max(currentSelStart, currentSelEnd)
+
+            val startFrom = when {
+                rememberedActiveHead != null -> rememberedActiveHead!!
+                hasSelection && deltaSteps > 0 -> selMin
+                hasSelection && deltaSteps < 0 -> selMax
+                else -> currentSelEnd
+            }
+
             resetGlideSelection()
             rememberedAnchor = null
             rememberedActiveHead = null
 
             if (deltaSteps < 0 && startFrom <= 0) return false
-            if (deltaSteps > 0 && ic.getTextAfterCursor(1, 0).isNullOrEmpty()) return false
+            if (deltaSteps > 0 && !hasSelection && ic.getTextAfterCursor(1, 0).isNullOrEmpty()) return false
+            if (deltaSteps > 0 && hasSelection && startFrom >= selMax && ic.getTextAfterCursor(1, 0).isNullOrEmpty()) return false
 
             val target = (startFrom + deltaSteps).coerceAtLeast(0)
             if (target != currentSelEnd || currentSelStart != currentSelEnd) {
@@ -381,11 +381,11 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
                     val selMin = kotlin.math.min(currentSelStart, currentSelEnd)
                     val selMax = kotlin.math.max(currentSelStart, currentSelEnd)
                     if (deltaSteps < 0) {
-                        selectionAnchor = selMax
-                        activeCursorPos = selMin
-                    } else {
                         selectionAnchor = selMin
                         activeCursorPos = selMax
+                    } else {
+                        selectionAnchor = selMax
+                        activeCursorPos = selMin
                     }
                 } else {
                     selectionAnchor = currentSelEnd
@@ -399,8 +399,9 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             if (deltaSteps < 0 && currentPos <= 0) return false
 
             val target = (currentPos + deltaSteps).coerceAtLeast(0)
+            val maxBound = kotlin.math.max(anchor, currentPos)
 
-            if (deltaSteps > 0 && target > anchor && ic.getTextAfterCursor(1, 0).isNullOrEmpty()) {
+            if (deltaSteps > 0 && target > maxBound && ic.getTextAfterCursor(1, 0).isNullOrEmpty()) {
                 return false
             }
 
