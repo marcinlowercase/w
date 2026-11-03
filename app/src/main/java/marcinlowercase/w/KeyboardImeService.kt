@@ -334,18 +334,23 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
 
     private var selectionAnchor: Int? = null
     private var activeCursorPos: Int? = null
+    private var rememberedAnchor: Int? = null
+    private var rememberedActiveHead: Int? = null
 
     private fun handleCursorGlide(deltaSteps: Int, isSelecting: Boolean): Boolean {
         val ic = currentInputConnection ?: return false
 
         if (!isSelecting) {
+            val startFrom = rememberedActiveHead ?: kotlin.math.min(currentSelStart, currentSelEnd)
             resetGlideSelection()
+            rememberedAnchor = null
+            rememberedActiveHead = null
 
-            if (deltaSteps < 0 && currentSelEnd <= 0) return false
+            if (deltaSteps < 0 && startFrom <= 0) return false
             if (deltaSteps > 0 && ic.getTextAfterCursor(1, 0).isNullOrEmpty()) return false
 
-            val target = (currentSelEnd + deltaSteps).coerceAtLeast(0)
-            if (target != currentSelEnd) {
+            val target = (startFrom + deltaSteps).coerceAtLeast(0)
+            if (target != currentSelEnd || currentSelStart != currentSelEnd) {
                 ic.setSelection(target, target)
                 currentSelStart = target
                 currentSelEnd = target
@@ -353,23 +358,44 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             }
             return false
         } else {
+            val hasExistingSelection = currentSelStart != currentSelEnd
+
             if (selectionAnchor == null) {
-                selectionAnchor = currentSelStart
-                activeCursorPos = currentSelEnd
+                if (rememberedAnchor != null && rememberedActiveHead != null) {
+                    selectionAnchor = rememberedAnchor
+                    activeCursorPos = rememberedActiveHead
+                } else if (hasExistingSelection) {
+                    val selMin = kotlin.math.min(currentSelStart, currentSelEnd)
+                    val selMax = kotlin.math.max(currentSelStart, currentSelEnd)
+                    if (deltaSteps < 0) {
+                        selectionAnchor = selMax
+                        activeCursorPos = selMin
+                    } else {
+                        selectionAnchor = selMin
+                        activeCursorPos = selMax
+                    }
+                } else {
+                    selectionAnchor = currentSelEnd
+                    activeCursorPos = currentSelEnd
+                }
             }
 
-            val anchor = selectionAnchor ?: currentSelStart
+            val anchor = selectionAnchor ?: currentSelEnd
             val currentPos = activeCursorPos ?: currentSelEnd
 
             if (deltaSteps < 0 && currentPos <= 0) return false
-            if (deltaSteps > 0 && ic.getTextAfterCursor(1, 0).isNullOrEmpty()) return false
 
             val target = (currentPos + deltaSteps).coerceAtLeast(0)
+
+            if (deltaSteps > 0 && target > anchor && ic.getTextAfterCursor(1, 0).isNullOrEmpty()) {
+                return false
+            }
+
             if (target != currentPos) {
                 activeCursorPos = target
+                rememberedAnchor = anchor
+                rememberedActiveHead = target
                 ic.setSelection(anchor, target)
-                currentSelStart = anchor
-                currentSelEnd = target
                 return true
             }
             return false
@@ -383,5 +409,7 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
 
     private fun resetCursorTracking() {
         resetGlideSelection()
+        rememberedAnchor = null
+        rememberedActiveHead = null
     }
 }
