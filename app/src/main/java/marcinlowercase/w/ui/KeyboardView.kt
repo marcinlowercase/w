@@ -4,14 +4,12 @@ import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -19,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -34,31 +33,28 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import marcinlowercase.w.R
 import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
-import marcinlowercase.w.model.KeyboardLayoutConfig
 import marcinlowercase.w.model.PopupDirection
 import marcinlowercase.w.model.SecondaryBindings
-import marcinlowercase.w.R
 
 object KeyboardDimens {
-    val popupHeadroom = 100.dp
+    val popupHeadroom = 160.dp
     val keyHeight = 53.dp
     val rowGap = 6.dp
+    val keyGap = 6.dp
     val popupCircleSize = keyHeight + rowGap
     val ribbonHeight = 38.dp
     val bottomChinPadding = 32.dp
     val topPadding = 8.dp
-    val keyGap = 5.dp
     val keyCornerRadius = 8.dp
     val popupOffset = (-64).dp
 }
@@ -211,11 +207,11 @@ fun RemappableKeyView(key: KeyDefinition) {
     val coroutineScope = rememberCoroutineScope()
     var isPressedDown by remember { mutableStateOf(false) }
     var showPopup by remember { mutableStateOf(false) }
-    var selectedIndex by remember { mutableIntStateOf(-1) }
     var selectedDirection by remember { mutableStateOf(PopupDirection.CENTER) }
     var shiftHoldAction by remember { mutableStateOf(ShiftHoldAction.NONE) }
     var popupHorizontalShiftDp by remember { mutableStateOf(0.dp) }
-    var popupVerticalShiftDp by remember { mutableStateOf(0.dp) }
+    var keycapCenterOffsetInCellDp by remember { mutableStateOf(0.dp) }
+    var keycapWidthDp by remember { mutableStateOf(0.dp) }
 
     val isShiftActive = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
     val isCtrlArmed = key.id == "ctrl" && viewModel.ctrlArmed.value
@@ -247,6 +243,11 @@ fun RemappableKeyView(key: KeyDefinition) {
         "a" -> Alignment.CenterEnd
         "l" -> Alignment.CenterStart
         else -> Alignment.Center
+    }
+    val popupAlignment = when (key.id) {
+        "a" -> Alignment.TopEnd
+        "l" -> Alignment.TopStart
+        else -> Alignment.TopCenter
     }
 
     val cellHeight = KeyboardDimens.keyHeight + KeyboardDimens.rowGap
@@ -418,7 +419,20 @@ fun RemappableKeyView(key: KeyDefinition) {
                 .onGloballyPositioned { coordinates ->
                     val rootWidth = coordinates.findRootCoordinates().size.width.toFloat()
                     val keyCenterInRoot = coordinates.positionInRoot().x + (coordinates.size.width / 2f)
-                    val keyTopInRoot = coordinates.positionInRoot().y
+                    val measuredKeyWidth = with(density) { coordinates.size.width.toDp() }
+                    if (keycapWidthDp != measuredKeyWidth) {
+                        keycapWidthDp = measuredKeyWidth
+                    }
+
+                    val parentCoords = coordinates.parentLayoutCoordinates
+                    if (parentCoords != null) {
+                        val cellCenterInRoot = parentCoords.positionInRoot().x + (parentCoords.size.width / 2f)
+                        val offsetPx = keyCenterInRoot - cellCenterInRoot
+                        val offsetDp = with(density) { offsetPx.toDp() }
+                        if (keycapCenterOffsetInCellDp != offsetDp) {
+                            keycapCenterOffsetInCellDp = offsetDp
+                        }
+                    }
 
                     val secOptions = when {
                         key.secondaries?.hasOptions() == true -> key.secondaries
@@ -432,36 +446,12 @@ fun RemappableKeyView(key: KeyDefinition) {
                         else -> null
                     }
 
-                    val hasTop = secOptions?.top != null
-                    val hasBottom = secOptions?.bottom != null
-                    val rowsCount = when {
-                        hasTop && hasBottom -> 3
-                        hasTop || hasBottom -> 2
-                        else -> 1
-                    }
-                    val cardHeightPx = with(density) { ((KeyboardDimens.popupCircleSize * rowsCount) + 8.dp).toPx() }
-                    val idealTopInRoot = keyTopInRoot - cardHeightPx - with(density) { 6.dp.toPx() }
-                    val shiftYPx = if (idealTopInRoot < 0f) -idealTopInRoot else 0f
-                    val shiftYDp = with(density) { shiftYPx.toDp() }
-                    if (popupVerticalShiftDp != shiftYDp) {
-                        popupVerticalShiftDp = shiftYDp
-                    }
-
-                    val hasLeft = secOptions?.left != null
-                    val hasRight = secOptions?.right != null
-                    val colsCount = when {
-                        hasLeft && hasRight -> 3
-                        hasLeft || hasRight -> 2
-                        else -> 1
-                    }
-                    val popupHalfWidthPx = with(density) { ((KeyboardDimens.popupCircleSize * colsCount) / 2f).toPx() }
-
-                    val popupLeftInRoot = keyCenterInRoot - popupHalfWidthPx
-                    val popupRightInRoot = keyCenterInRoot + popupHalfWidthPx
+                    val leftBoundaryPx = keyCenterInRoot - with(density) { 30.dp.toPx() }
+                    val rightBoundaryPx = keyCenterInRoot + with(density) { 30.dp.toPx() }
 
                     val shiftPx = when {
-                        popupLeftInRoot < 0f -> -popupLeftInRoot
-                        popupRightInRoot > rootWidth -> rootWidth - popupRightInRoot
+                        leftBoundaryPx < 0f -> -leftBoundaryPx
+                        rightBoundaryPx > rootWidth -> rootWidth - rightBoundaryPx
                         else -> 0f
                     }
 
@@ -518,18 +508,24 @@ fun RemappableKeyView(key: KeyDefinition) {
             }
         }
 
+        val slotWidth = if (keycapWidthDp > 0.dp) keycapWidthDp else (KeyboardDimens.keyHeight * 0.65f)
+        val slotHeight = KeyboardDimens.keyHeight
+
         if (key.type == KeyType.CHARACTER) {
+            val previewPlacementY = -(KeyboardDimens.rowGap / 2) - slotHeight
+
             Box(
                 modifier = Modifier
-                    .align(visualAlignment)
-                    .offset(x = popupHorizontalShiftDp, y = (-60).dp)
-                    .requiredSize(KeyboardDimens.popupCircleSize)
+                    .align(Alignment.TopCenter)
+                    .offset(x = keycapCenterOffsetInCellDp, y = previewPlacementY)
+                    .requiredWidth(slotWidth)
+                    .requiredHeight(slotHeight)
                     .graphicsLayer {
                         alpha = if (isPressedDown && !showPopup) 1f else 0f
                     }
-                    .shadow(elevation = 6.dp, shape = CircleShape)
-                    .background(popupBg, CircleShape)
-                    .border(0.5.dp, popupBorder, CircleShape),
+                    .shadow(elevation = 6.dp, shape = RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                    .background(Color(0xFF2563EB), RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                    .border(0.5.dp, Color(0xFF2563EB), RoundedCornerShape(KeyboardDimens.keyCornerRadius)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -537,26 +533,28 @@ fun RemappableKeyView(key: KeyDefinition) {
                     fontSize = 26.sp,
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = FontFamily.Monospace,
-                    color = unselectedPopupTextColor
+                    color = Color.White
                 )
             }
         }
 
         if (showPopup) {
             if (key.type == KeyType.SHIFT) {
-                val totalShiftHeight = KeyboardDimens.popupCircleSize * 3
+                val totalShiftHeight = (slotHeight * 3) + (KeyboardDimens.rowGap * 2)
+                val shiftPlacementY = -(KeyboardDimens.rowGap / 2) - totalShiftHeight
 
                 Column(
                     modifier = Modifier
-                        .align(visualAlignment)
-                        .offset(x = popupHorizontalShiftDp, y = (-60).dp - KeyboardDimens.popupCircleSize)
+                        .align(Alignment.TopCenter)
+                        .offset(x = keycapCenterOffsetInCellDp, y = shiftPlacementY)
                         .wrapContentSize(unbounded = true)
-                        .requiredWidth(KeyboardDimens.popupCircleSize)
+                        .requiredWidth(slotWidth)
                         .requiredHeight(totalShiftHeight)
-                        .shadow(elevation = 6.dp, shape = CircleShape)
-                        .background(popupBg, CircleShape)
-                        .border(0.5.dp, popupBorder, CircleShape),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .shadow(elevation = 6.dp, shape = RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                        .background(popupBg, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                        .border(0.5.dp, keyBorderColor, RoundedCornerShape(KeyboardDimens.keyCornerRadius)),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(KeyboardDimens.rowGap)
                 ) {
                     val isShiftMode = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
                     val tabText = if (isShiftMode) "TAB" else "tab"
@@ -573,14 +571,17 @@ fun RemappableKeyView(key: KeyDefinition) {
                         val itemColor = if (isSelected) Color.White else unselectedPopupTextColor
 
                         Box(
-                            modifier = Modifier.requiredSize(KeyboardDimens.popupCircleSize),
+                            modifier = Modifier
+                                .requiredWidth(slotWidth)
+                                .requiredHeight(slotHeight),
                             contentAlignment = Alignment.Center
                         ) {
                             if (isSelected) {
                                 Box(
                                     modifier = Modifier
-                                        .requiredSize(KeyboardDimens.popupCircleSize - 6.dp)
-                                        .background(Color(0xFF2563EB), CircleShape)
+                                        .requiredWidth(slotWidth - 6.dp)
+                                        .requiredHeight(slotHeight - 6.dp)
+                                        .background(Color(0xFF2563EB), RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                                 )
                             }
                             when (action) {
@@ -622,201 +623,202 @@ fun RemappableKeyView(key: KeyDefinition) {
                 }
 
                 if (sec?.hasOptions() == true) {
-                    val slotSize = KeyboardDimens.popupCircleSize
-                    val cardPadding = 4.dp
-                    val cardCornerRadius = slotSize / 2
-
                     val hasTop = sec.top != null
                     val hasBottom = sec.bottom != null
-                    val hasLeft = sec.left != null
-                    val hasRight = sec.right != null
 
-                    val rowsCount = when {
-                        hasTop && hasBottom -> 3
-                        hasTop || hasBottom -> 2
-                        else -> 1
-                    }
+                    val rowCount = (if (hasTop) 1 else 0) + 1 + (if (hasBottom) 1 else 0)
+                    val popupHeight = (slotHeight * rowCount) + (KeyboardDimens.rowGap * (rowCount - 1))
+                    val popupWidth = (slotWidth * 3) + (KeyboardDimens.keyGap * 2)
 
-                    val columnsCount = when {
-                        hasLeft && hasRight -> 3
-                        hasLeft || hasRight -> 2
-                        else -> 1
-                    }
-
-                    val cardWidth = (slotSize * columnsCount) + (cardPadding * 2)
-                    val cardHeight = (slotSize * rowsCount) + (cardPadding * 2)
-
-                    val xAlignmentOffset = when {
-                        !hasLeft && hasRight -> (slotSize / 2)
-                        hasLeft && !hasRight -> -(slotSize / 2)
+                    val popupPlacementY = when (rowCount) {
+                        3 -> -(slotHeight * 2 + KeyboardDimens.rowGap * 2)
+                        2 -> -(slotHeight * 1.5f + KeyboardDimens.rowGap * 1.5f)
+                        1 -> -(KeyboardDimens.rowGap / 2 + slotHeight)
                         else -> 0.dp
                     }
 
                     Box(
                         modifier = Modifier
-                            .align(visualAlignment)
-                            .offset(x = popupHorizontalShiftDp + xAlignmentOffset, y = -cardHeight - 6.dp + popupVerticalShiftDp)
+                            .align(Alignment.TopCenter)
+                            .offset(
+                                x = keycapCenterOffsetInCellDp,
+                                y = popupPlacementY
+                            )
                             .wrapContentSize(unbounded = true)
-                            .requiredWidth(cardWidth)
-                            .requiredHeight(cardHeight)
-                            .shadow(elevation = 8.dp, shape = RoundedCornerShape(cardCornerRadius))
-                            .background(popupBg, RoundedCornerShape(cardCornerRadius))
-                            .border(0.5.dp, popupBorder, RoundedCornerShape(cardCornerRadius))
-                            .padding(cardPadding)
+                            .requiredWidth(popupWidth)
+                            .requiredHeight(popupHeight)
                     ) {
                         Column(
                             modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.SpaceBetween
+                            verticalArrangement = Arrangement.spacedBy(KeyboardDimens.rowGap)
                         ) {
                             if (hasTop) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    horizontalArrangement = Arrangement.spacedBy(KeyboardDimens.keyGap)
                                 ) {
-                                    if (hasLeft) Spacer(modifier = Modifier.requiredSize(slotSize))
+                                    Spacer(modifier = Modifier.requiredWidth(slotWidth).requiredHeight(slotHeight))
 
+                                    val isSelected = selectedDirection == PopupDirection.TOP
                                     Box(
-                                        modifier = Modifier.requiredSize(slotSize),
+                                        modifier = Modifier
+                                            .requiredWidth(slotWidth)
+                                            .requiredHeight(slotHeight)
+                                            .shadow(elevation = 6.dp, shape = RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                                            .background(
+                                                if (isSelected) Color(0xFF2563EB) else popupBg,
+                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius)
+                                            )
+                                            .border(
+                                                0.5.dp,
+                                                if (isSelected) Color(0xFF2563EB) else popupBorder,
+                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius)
+                                            ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        sec.top?.let { symbol ->
-                                            val isSelected = selectedDirection == PopupDirection.TOP
-                                            if (isSelected) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .requiredSize(slotSize - 6.dp)
-                                                        .background(Color(0xFF2563EB), CircleShape)
-                                                )
-                                            }
-                                            Text(
-                                                text = symbol,
-                                                color = if (isSelected) Color.White else unselectedPopupTextColor,
-                                                fontSize = 26.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                        }
+                                        Text(
+                                            text = sec.top ?: "",
+                                            color = if (isSelected) Color.White else unselectedPopupTextColor,
+                                            fontSize = 22.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontFamily = FontFamily.Monospace
+                                        )
                                     }
 
-                                    if (hasRight) Spacer(modifier = Modifier.requiredSize(slotSize))
+                                    Spacer(modifier = Modifier.requiredWidth(slotWidth).requiredHeight(slotHeight))
                                 }
                             }
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.spacedBy(KeyboardDimens.keyGap)
                             ) {
-                                if (hasLeft) {
+                                if (sec.left != null) {
+                                    val isSelected = selectedDirection == PopupDirection.LEFT
                                     Box(
-                                        modifier = Modifier.requiredSize(slotSize),
+                                        modifier = Modifier
+                                            .requiredWidth(slotWidth)
+                                            .requiredHeight(slotHeight)
+                                            .shadow(elevation = 6.dp, shape = RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                                            .background(
+                                                if (isSelected) Color(0xFF2563EB) else popupBg,
+                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius)
+                                            )
+                                            .border(
+                                                0.5.dp,
+                                                if (isSelected) Color(0xFF2563EB) else popupBorder,
+                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius)
+                                            ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        sec.left?.let { symbol ->
-                                            val isSelected = selectedDirection == PopupDirection.LEFT
-                                            if (isSelected) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .requiredSize(slotSize - 6.dp)
-                                                        .background(Color(0xFF2563EB), CircleShape)
-                                                )
-                                            }
-                                            Text(
-                                                text = symbol,
-                                                color = if (isSelected) Color.White else unselectedPopupTextColor,
-                                                fontSize = 26.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                        }
-                                    }
-                                }
-
-                                Box(
-                                    modifier = Modifier.requiredSize(slotSize),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    sec.center?.let { symbol ->
-                                        val isSelected = selectedDirection == PopupDirection.CENTER
-                                        if (isSelected) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .requiredSize(slotSize - 6.dp)
-                                                    .background(Color(0xFF2563EB), CircleShape)
-                                            )
-                                        }
                                         Text(
-                                            text = symbol,
+                                            text = sec.left,
                                             color = if (isSelected) Color.White else unselectedPopupTextColor,
-                                            fontSize = 26.sp,
+                                            fontSize = 22.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             fontFamily = FontFamily.Monospace
                                         )
                                     }
+                                } else {
+                                    Spacer(modifier = Modifier.requiredWidth(slotWidth).requiredHeight(slotHeight))
                                 }
 
-                                if (hasRight) {
+                                val isCenterSelected = selectedDirection == PopupDirection.CENTER
+                                Box(
+                                    modifier = Modifier
+                                        .requiredWidth(slotWidth)
+                                        .requiredHeight(slotHeight)
+                                        .shadow(elevation = 6.dp, shape = RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                                        .background(
+                                            if (isCenterSelected) Color(0xFF2563EB) else popupBg,
+                                            RoundedCornerShape(KeyboardDimens.keyCornerRadius)
+                                        )
+                                        .border(
+                                            0.5.dp,
+                                            if (isCenterSelected) Color(0xFF2563EB) else popupBorder,
+                                            RoundedCornerShape(KeyboardDimens.keyCornerRadius)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = sec.center ?: "",
+                                        color = if (isCenterSelected) Color.White else unselectedPopupTextColor,
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+
+                                if (sec.right != null) {
+                                    val isSelected = selectedDirection == PopupDirection.RIGHT
                                     Box(
-                                        modifier = Modifier.requiredSize(slotSize),
+                                        modifier = Modifier
+                                            .requiredWidth(slotWidth)
+                                            .requiredHeight(slotHeight)
+                                            .shadow(elevation = 6.dp, shape = RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                                            .background(
+                                                if (isSelected) Color(0xFF2563EB) else popupBg,
+                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius)
+                                            )
+                                            .border(
+                                                0.5.dp,
+                                                if (isSelected) Color(0xFF2563EB) else popupBorder,
+                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius)
+                                            ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        sec.right?.let { symbol ->
-                                            val isSelected = selectedDirection == PopupDirection.RIGHT
-                                            if (isSelected) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .requiredSize(slotSize - 6.dp)
-                                                        .background(Color(0xFF2563EB), CircleShape)
-                                                )
-                                            }
-                                            Text(
-                                                text = symbol,
-                                                color = if (isSelected) Color.White else unselectedPopupTextColor,
-                                                fontSize = 26.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                        }
+                                        Text(
+                                            text = sec.right,
+                                            color = if (isSelected) Color.White else unselectedPopupTextColor,
+                                            fontSize = 22.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontFamily = FontFamily.Monospace
+                                        )
                                     }
+                                } else {
+                                    Spacer(modifier = Modifier.requiredWidth(slotWidth).requiredHeight(slotHeight))
                                 }
                             }
 
                             if (hasBottom) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    horizontalArrangement = Arrangement.spacedBy(KeyboardDimens.keyGap)
                                 ) {
-                                    if (hasLeft) Spacer(modifier = Modifier.requiredSize(slotSize))
+                                    Spacer(modifier = Modifier.requiredWidth(slotWidth).requiredHeight(slotHeight))
 
+                                    val isSelected = selectedDirection == PopupDirection.BOTTOM
                                     Box(
-                                        modifier = Modifier.requiredSize(slotSize),
+                                        modifier = Modifier
+                                            .requiredWidth(slotWidth)
+                                            .requiredHeight(slotHeight)
+                                            .shadow(elevation = 6.dp, shape = RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                                            .background(
+                                                if (isSelected) Color(0xFF2563EB) else popupBg,
+                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius)
+                                            )
+                                            .border(
+                                                0.5.dp,
+                                                if (isSelected) Color(0xFF2563EB) else popupBorder,
+                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius)
+                                            ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        sec.bottom?.let { symbol ->
-                                            val isSelected = selectedDirection == PopupDirection.BOTTOM
-                                            if (isSelected) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .requiredSize(slotSize - 6.dp)
-                                                        .background(Color(0xFF2563EB), CircleShape)
-                                                )
-                                            }
-                                            Text(
-                                                text = symbol,
-                                                color = if (isSelected) Color.White else unselectedPopupTextColor,
-                                                fontSize = 26.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                fontFamily = FontFamily.Monospace
-                                            )
-                                        }
+                                        Text(
+                                            text = sec.bottom ?: "",
+                                            color = if (isSelected) Color.White else unselectedPopupTextColor,
+                                            fontSize = 22.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontFamily = FontFamily.Monospace
+                                        )
                                     }
 
-                                    if (hasRight) Spacer(modifier = Modifier.requiredSize(slotSize))
+                                    Spacer(modifier = Modifier.requiredWidth(slotWidth).requiredHeight(slotHeight))
                                 }
                             }
                         }
                     }
-                }
-            }
+                }            }
         }
     }
 }

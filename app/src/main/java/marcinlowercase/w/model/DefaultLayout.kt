@@ -26,7 +26,17 @@ object DefaultLayout {
                 KeyDefinition("t", "t", hint = "<", popups = listOf("<")),
                 KeyDefinition("y", "y", hint = ">", popups = listOf(">")),
                 KeyDefinition("u", "u", hint = "=", popups = listOf("=")),
-                KeyDefinition("i", "i", hint = "+", popups = listOf("+")),
+                KeyDefinition(
+                    id = "i",
+                    primaryChar = "i",
+                    hint = "+",
+                    secondaries = SecondaryBindings(
+                        center = "+",
+                        top = "*",
+                        left = "&",
+                        right = "%"
+                    )
+                ),
                 KeyDefinition("o", "o", hint = "-", popups = listOf("-", "_")),
                 KeyDefinition(
                     id = "p",
