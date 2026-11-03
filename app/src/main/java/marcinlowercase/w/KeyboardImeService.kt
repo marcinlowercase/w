@@ -38,6 +38,7 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
 
     private var currentSelStart = 0
     private var currentSelEnd = 0
+    private var isSelectAllPending = false
 
     override fun onStartInput(attribute: android.view.inputmethod.EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
@@ -56,6 +57,13 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
         currentSelStart = newSelStart
         currentSelEnd = newSelEnd
+
+        if (isSelectAllPending) {
+            val docEnd = kotlin.math.max(newSelStart, newSelEnd)
+            rememberedAnchor = 0
+            rememberedActiveHead = docEnd
+            isSelectAllPending = false
+        }
     }
 
     override val lifecycle: Lifecycle get() = lifecycleRegistry
@@ -243,6 +251,11 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
                     return true
                 }
                 "a" -> {
+                    isSelectAllPending = true
+                    val currentMax = kotlin.math.max(currentSelStart, currentSelEnd)
+                    rememberedAnchor = 0
+                    rememberedActiveHead = currentMax
+
                     val selectedAll = ic.performContextMenuAction(android.R.id.selectAll)
                     if (!selectedAll) {
                         val now = android.os.SystemClock.uptimeMillis()
@@ -341,7 +354,7 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         val ic = currentInputConnection ?: return false
 
         if (!isSelecting) {
-            val startFrom = rememberedActiveHead ?: kotlin.math.min(currentSelStart, currentSelEnd)
+            val startFrom = rememberedActiveHead ?: kotlin.math.max(currentSelStart, currentSelEnd)
             resetGlideSelection()
             rememberedAnchor = null
             rememberedActiveHead = null
