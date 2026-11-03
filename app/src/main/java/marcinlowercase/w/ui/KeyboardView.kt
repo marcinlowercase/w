@@ -44,7 +44,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -70,6 +69,7 @@ import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
 import marcinlowercase.w.model.PopupDirection
 import marcinlowercase.w.model.SecondaryBindings
+import kotlin.time.Duration.Companion.milliseconds
 
 object KeyboardDimens {
     val popupHeadroom = 160.dp
@@ -78,7 +78,6 @@ object KeyboardDimens {
     val keyGap = 4.dp
     val ribbonHeight = 38.dp
     val bottomChinPadding = 32.dp
-    val topPadding = 8.dp
     val keyCornerRadius = 12.dp
 }
 
@@ -112,9 +111,9 @@ fun KeyboardView(
                     .background(keyboardBgColor)
                     .navigationBarsPadding()
                     .padding(
-                        start = KeyboardDimens.keyGap,
-                        end = KeyboardDimens.keyGap,
-                        top = KeyboardDimens.keyGap,
+                        start = KeyboardDimens.keyGap/2 ,
+                        end = KeyboardDimens.keyGap/2,
+                        top = KeyboardDimens.keyGap/2,
                         bottom = KeyboardDimens.bottomChinPadding
                     )
             ) {
@@ -298,7 +297,7 @@ fun RemappableKeyView(key: KeyDefinition) {
                         if (releasedEarly == null) {
                             val repeatJob = coroutineScope.launch {
                                 while (isActive) {
-                                    delay(50L)
+                                    delay(50L.milliseconds)
                                     val deleted = viewModel.pressKey(key)
                                     if (deleted) {
                                         view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
@@ -458,17 +457,6 @@ fun RemappableKeyView(key: KeyDefinition) {
                         }
                     }
 
-                    val secOptions = when {
-                        key.secondaries?.hasOptions() == true -> key.secondaries
-                        key.popups.isNotEmpty() -> when (key.popups.size) {
-                            1 -> SecondaryBindings(center = key.popups[0])
-                            2 -> SecondaryBindings(center = key.popups[0], right = key.popups[1])
-                            3 -> SecondaryBindings(center = key.popups[0], top = key.popups[1], right = key.popups[2])
-                            4 -> SecondaryBindings(center = key.popups[0], top = key.popups[1], right = key.popups[2], bottom = key.popups[3])
-                            else -> SecondaryBindings(center = key.popups[0], top = key.popups[1], right = key.popups[2], bottom = key.popups[3], left = key.popups[4])
-                        }
-                        else -> null
-                    }
 
                     val leftBoundaryPx = keyCenterInRoot - with(density) { 30.dp.toPx() }
                     val rightBoundaryPx = keyCenterInRoot + with(density) { 30.dp.toPx() }
