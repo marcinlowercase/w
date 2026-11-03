@@ -1,10 +1,14 @@
 package marcinlowercase.w
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
 import android.view.KeyEvent
 import android.view.View
 import android.view.Window
+import android.view.inputmethod.ExtractedTextRequest
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
@@ -31,6 +35,28 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
     private val appViewModelStore = ViewModelStore()
     private val savedStateRegistryController = SavedStateRegistryController.create(this)
     private val viewModel = KeyboardViewModel()
+
+    private var currentSelStart = 0
+    private var currentSelEnd = 0
+
+    override fun onStartInput(attribute: android.view.inputmethod.EditorInfo?, restarting: Boolean) {
+        super.onStartInput(attribute, restarting)
+        currentSelStart = attribute?.initialSelStart ?: 0
+        currentSelEnd = attribute?.initialSelEnd ?: 0
+    }
+
+    override fun onUpdateSelection(
+        oldSelStart: Int,
+        oldSelEnd: Int,
+        newSelStart: Int,
+        newSelEnd: Int,
+        candidatesStart: Int,
+        candidatesEnd: Int
+    ) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        currentSelStart = newSelStart
+        currentSelEnd = newSelEnd
+    }
 
     override val lifecycle: Lifecycle get() = lifecycleRegistry
     override val viewModelStore: ViewModelStore get() = appViewModelStore
@@ -115,12 +141,6 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         val ic = currentInputConnection ?: return false
 
         if (key.type == KeyType.BACKSPACE) {
-            val selected = ic.getSelectedText(0)
-            if (!selected.isNullOrEmpty()) {
-                ic.commitText("", 1)
-                return true
-            }
-
             val isShiftOn = (metaState and KeyEvent.META_SHIFT_ON) != 0
             val isCtrlOn = (metaState and KeyEvent.META_CTRL_ON) != 0
 
@@ -131,21 +151,105 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
                 return true
             }
 
-            return if (isShiftOn) {
+            if (isShiftOn) {
                 val textAfter = ic.getTextAfterCursor(1, 0)
-                if (!textAfter.isNullOrEmpty()) {
+                return if (!textAfter.isNullOrEmpty()) {
                     ic.deleteSurroundingText(0, 1)
                     true
                 } else {
                     false
                 }
-            } else {
-                val textBefore = ic.getTextBeforeCursor(1, 0)
-                if (!textBefore.isNullOrEmpty()) {
-                    ic.deleteSurroundingText(1, 0)
-                    true
-                } else {
-                    false
+            }
+
+            val hasSelection = currentSelStart != currentSelEnd
+            if (hasSelection) {
+                val now = android.os.SystemClock.uptimeMillis()
+                ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL, 0, 0))
+                ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL, 0, 0))
+                return true
+            }
+
+            if (currentSelStart > 0 || !ic.getTextBeforeCursor(1, 0).isNullOrEmpty()) {
+                ic.deleteSurroundingText(1, 0)
+                return true
+            }
+
+            return false
+        }
+
+        val isCtrl = (metaState and KeyEvent.META_CTRL_ON) != 0
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val maxSafeChars = 1000000
+        val ipcChunkSize = 40000
+
+        if (isCtrl && key.type == KeyType.CHARACTER) {
+            when (key.primaryChar.lowercase()) {
+                "c" -> {
+                    val copied = ic.performContextMenuAction(android.R.id.copy)
+                    if (!copied) {
+                        val selected = ic.getSelectedText(0)?.toString()?.take(maxSafeChars)
+                        if (!selected.isNullOrEmpty()) {
+                            clipboard.setPrimaryClip(ClipData.newPlainText("w_clip", selected))
+                        } else {
+                            val now = android.os.SystemClock.uptimeMillis()
+                            ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_C, 0, metaState))
+                            ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_C, 0, metaState))
+                        }
+                    }
+                    return true
+                }
+                "x" -> {
+                    val cut = ic.performContextMenuAction(android.R.id.cut)
+                    if (!cut) {
+                        val selected = ic.getSelectedText(0)?.toString()?.take(maxSafeChars)
+                        if (!selected.isNullOrEmpty()) {
+                            clipboard.setPrimaryClip(ClipData.newPlainText("w_clip", selected))
+                            ic.commitText("", 1)
+                        } else {
+                            val now = android.os.SystemClock.uptimeMillis()
+                            ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_X, 0, metaState))
+                            ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_X, 0, metaState))
+                        }
+                    }
+                    return true
+                }
+                "v" -> {
+                    val pasted = ic.performContextMenuAction(android.R.id.paste)
+                    if (!pasted) {
+                        val clip = clipboard.primaryClip
+                        if (clip != null && clip.itemCount > 0) {
+                            val rawText = clip.getItemAt(0).coerceToText(this).toString()
+                            val text = rawText.take(maxSafeChars)
+                            if (text.isNotEmpty()) {
+                                ic.beginBatchEdit()
+                                try {
+                                    if (text.length > ipcChunkSize) {
+                                        text.chunked(ipcChunkSize).forEach { chunk ->
+                                            ic.commitText(chunk, 1)
+                                        }
+                                    } else {
+                                        ic.commitText(text, 1)
+                                    }
+                                } finally {
+                                    ic.endBatchEdit()
+                                }
+                                return true
+                            }
+                        }
+                        val now = android.os.SystemClock.uptimeMillis()
+                        ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_V, 0, metaState))
+                        ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_V, 0, metaState))
+                    }
+                    return true
+                }
+                "a" -> {
+                    val selectedAll = ic.performContextMenuAction(android.R.id.selectAll)
+                    if (!selectedAll) {
+                        val now = android.os.SystemClock.uptimeMillis()
+                        ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_A, 0, metaState))
+                        ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_A, 0, metaState))
+                    }
+                    return true
                 }
             }
         }
@@ -230,73 +334,45 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
 
     private var selectionAnchor: Int? = null
     private var activeCursorPos: Int? = null
-    private var lastKnownCursorPos: Int? = null
 
     private fun handleCursorGlide(deltaSteps: Int, isSelecting: Boolean): Boolean {
         val ic = currentInputConnection ?: return false
-        val before = ic.getTextBeforeCursor(10000, 0)?.length ?: 0
-        val selected = ic.getSelectedText(0)?.length ?: 0
-        val after = ic.getTextAfterCursor(10000, 0)?.length ?: 0
-        val total = before + selected + after
-        if (total == 0) return false
-
-        if (lastKnownCursorPos == null) {
-            lastKnownCursorPos = before + selected
-        }
 
         if (!isSelecting) {
             resetGlideSelection()
-            val currentPos = lastKnownCursorPos ?: (before + selected)
-            val target = (currentPos + deltaSteps).coerceIn(0, total)
-            return if (target != currentPos) {
-                lastKnownCursorPos = target
+
+            if (deltaSteps < 0 && currentSelEnd <= 0) return false
+            if (deltaSteps > 0 && ic.getTextAfterCursor(1, 0).isNullOrEmpty()) return false
+
+            val target = (currentSelEnd + deltaSteps).coerceAtLeast(0)
+            if (target != currentSelEnd) {
                 ic.setSelection(target, target)
-                true
-            } else {
-                false
+                currentSelStart = target
+                currentSelEnd = target
+                return true
             }
+            return false
         } else {
             if (selectionAnchor == null) {
-                if (selected > 0) {
-                    val startOfSel = before
-                    val endOfSel = before + selected
-                    when {
-                        lastKnownCursorPos == startOfSel -> {
-                            selectionAnchor = endOfSel
-                            activeCursorPos = startOfSel
-                        }
-                        lastKnownCursorPos == endOfSel -> {
-                            selectionAnchor = startOfSel
-                            activeCursorPos = endOfSel
-                        }
-                        deltaSteps < 0 -> {
-                            selectionAnchor = endOfSel
-                            activeCursorPos = startOfSel
-                        }
-                        else -> {
-                            selectionAnchor = startOfSel
-                            activeCursorPos = endOfSel
-                        }
-                    }
-                } else {
-                    val currentPos = lastKnownCursorPos ?: before
-                    selectionAnchor = currentPos
-                    activeCursorPos = currentPos
-                }
+                selectionAnchor = currentSelStart
+                activeCursorPos = currentSelEnd
             }
 
-            val anchor = selectionAnchor ?: before
-            val currentPos = activeCursorPos ?: anchor
-            val target = (currentPos + deltaSteps).coerceIn(0, total)
+            val anchor = selectionAnchor ?: currentSelStart
+            val currentPos = activeCursorPos ?: currentSelEnd
 
-            return if (target != currentPos) {
+            if (deltaSteps < 0 && currentPos <= 0) return false
+            if (deltaSteps > 0 && ic.getTextAfterCursor(1, 0).isNullOrEmpty()) return false
+
+            val target = (currentPos + deltaSteps).coerceAtLeast(0)
+            if (target != currentPos) {
                 activeCursorPos = target
-                lastKnownCursorPos = target
                 ic.setSelection(anchor, target)
-                true
-            } else {
-                false
+                currentSelStart = anchor
+                currentSelEnd = target
+                return true
             }
+            return false
         }
     }
 
@@ -307,6 +383,5 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
 
     private fun resetCursorTracking() {
         resetGlideSelection()
-        lastKnownCursorPos = null
     }
 }
