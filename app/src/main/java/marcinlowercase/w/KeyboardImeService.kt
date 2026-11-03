@@ -20,6 +20,7 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
+import marcinlowercase.w.model.ShiftState
 import marcinlowercase.w.ui.KeyboardDimens
 import marcinlowercase.w.ui.KeyboardView
 import marcinlowercase.w.viewmodel.KeyboardViewModel
@@ -92,7 +93,7 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         }
         viewModel.onCursorGlideHandler = { delta, isSelecting -> handleCursorGlide(delta, isSelecting) }
         viewModel.onGlideEndHandler = {
-            if (!viewModel.isShiftPhysicallyHeld.value) {
+            if (viewModel.shiftState.value != ShiftState.SHIFTED) {
                 resetGlideSelection()
             }
         }

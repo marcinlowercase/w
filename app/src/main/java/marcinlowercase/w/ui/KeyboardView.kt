@@ -8,16 +8,37 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -39,7 +60,6 @@ import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import marcinlowercase.w.R
 import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
@@ -49,14 +69,12 @@ import marcinlowercase.w.model.SecondaryBindings
 object KeyboardDimens {
     val popupHeadroom = 160.dp
     val keyHeight = 53.dp
-    val rowGap = 6.dp
-    val keyGap = 6.dp
-    val popupCircleSize = keyHeight + rowGap
+    val rowGap = 4.dp
+    val keyGap = 4.dp
     val ribbonHeight = 38.dp
     val bottomChinPadding = 32.dp
     val topPadding = 8.dp
-    val keyCornerRadius = 8.dp
-    val popupOffset = (-64).dp
+    val keyCornerRadius = 12.dp
 }
 
 val LocalKeyboardViewModel = staticCompositionLocalOf<marcinlowercase.w.viewmodel.KeyboardViewModel> {
@@ -89,9 +107,9 @@ fun KeyboardView(
                     .background(keyboardBgColor)
                     .navigationBarsPadding()
                     .padding(
-                        start = 5.dp,
-                        end = 5.dp,
-                        top = KeyboardDimens.topPadding,
+                        start = KeyboardDimens.keyGap,
+                        end = KeyboardDimens.keyGap,
+                        top = KeyboardDimens.keyGap,
                         bottom = KeyboardDimens.bottomChinPadding
                     )
             ) {
@@ -153,17 +171,13 @@ fun RibbonRow(keys: List<KeyDefinition>) {
     val view = LocalView.current
     val isDark = isSystemInDarkTheme()
 
-    val ribbonBg = if (isDark) Color(0xFF1C1C1E) else Color(0xFFF3F4F6)
-    val ribbonBorder = if (isDark) Color(0xFF38383A) else Color(0xFFE2E2E2)
+    val ribbonBg = if (isDark) Color(0xFF1C1C1E) else Color(0xFFEEEEEE)
     val ribbonTextColor = if (isDark) Color.White else Color(0xFF0F172A)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(KeyboardDimens.ribbonHeight)
-            .graphicsLayer {
-                alpha = if (viewModel.activePopupKeyId.value != null) 0.35f else 1f
-            },
+            .height(KeyboardDimens.ribbonHeight),
         horizontalArrangement = Arrangement.spacedBy(KeyboardDimens.keyGap)
     ) {
         keys.forEach { key ->
@@ -172,7 +186,6 @@ fun RibbonRow(keys: List<KeyDefinition>) {
                     .weight(1f)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(KeyboardDimens.keyCornerRadius))
-                    .border(0.5.dp, ribbonBorder, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                     .pointerInput(key.id) {
                         detectTapGestures {
                             view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
@@ -225,8 +238,8 @@ fun RemappableKeyView(key: KeyDefinition) {
 
     val keyBackground = when {
         isModifierArmed -> Color(0xFF2563EB)
-        key.type == KeyType.CHARACTER -> if (isDark) Color(0xFF1C1C1E) else Color.White
-        else -> if (isDark) Color(0xFF2C2C2E) else Color(0xFFE5E7EB)
+        key.type == KeyType.CHARACTER -> if (isDark) Color(0xFF1C1C1E) else Color(0xFFEEEEEE)
+        else -> if (isDark) Color(0xFF2C2C2E) else Color(0xFFDCE0E5)
     }
 
     val keyTextColor = when {
@@ -235,7 +248,6 @@ fun RemappableKeyView(key: KeyDefinition) {
         else -> Color(0xFF111827)
     }
 
-    val keyBorderColor = if (isDark) Color(0xFF38383A) else Color(0xFFD1D5DB)
     val hintColor = if (isDark) Color(0xFF8E8E93) else Color(0xFF9CA3AF)
     val popupBg = if (isDark) Color(0xFF1C1C1E) else Color.White
     val popupBorder = if (isDark) Color(0xFF38383A) else Color(0xFFD1D5DB)
@@ -246,11 +258,6 @@ fun RemappableKeyView(key: KeyDefinition) {
         "a" -> Alignment.CenterEnd
         "l" -> Alignment.CenterStart
         else -> Alignment.Center
-    }
-    val popupAlignment = when (key.id) {
-        "a" -> Alignment.TopEnd
-        "l" -> Alignment.TopStart
-        else -> Alignment.TopCenter
     }
 
     val cellHeight = KeyboardDimens.keyHeight + KeyboardDimens.rowGap
@@ -265,9 +272,6 @@ fun RemappableKeyView(key: KeyDefinition) {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                     isPressedDown = true
-                    if (key.type == KeyType.SHIFT) {
-                        viewModel.isShiftPhysicallyHeld.value = true
-                    }
 
                     if (key.type == KeyType.BACKSPACE) {
                         viewModel.pressKey(key)
@@ -307,16 +311,12 @@ fun RemappableKeyView(key: KeyDefinition) {
 
                     if (fingerReleasedEarly) {
                         isPressedDown = false
-                        if (key.type == KeyType.SHIFT) {
-                            viewModel.isShiftPhysicallyHeld.value = false
-                            viewModel.onGlideEnd()
-                        }
                         viewModel.pressKey(key)
                     } else {
                         isPressedDown = false
                         if (key.type == KeyType.SHIFT) {
                             view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                            shiftHoldAction = ShiftHoldAction.NONE
+                            shiftHoldAction = ShiftHoldAction.TAB
                             viewModel.activePopupKeyId.value = key.id
                             showPopup = true
 
@@ -328,23 +328,21 @@ fun RemappableKeyView(key: KeyDefinition) {
                                 val change = event.changes.firstOrNull() ?: break
                                 if (change.pressed) {
                                     val deltaY = change.position.y - startY
-                                    val newAction = when {
-                                        deltaY < -verticalThresholdPx -> ShiftHoldAction.TAB
-                                        deltaY > verticalThresholdPx -> ShiftHoldAction.ESC
-                                        else -> ShiftHoldAction.NONE
+                                    val newAction = if (deltaY > verticalThresholdPx) {
+                                        ShiftHoldAction.ESC
+                                    } else {
+                                        ShiftHoldAction.TAB
                                     }
                                     if (newAction != shiftHoldAction) {
                                         view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                                         shiftHoldAction = newAction
                                     }
                                 } else {
-                                    viewModel.isShiftPhysicallyHeld.value = false
-                                    viewModel.onGlideEnd()
                                     viewModel.activePopupKeyId.value = null
                                     when (shiftHoldAction) {
-                                        ShiftHoldAction.TAB -> viewModel.pressKey(KeyDefinition("tab", "TAB", type = KeyType.MODIFIER))
+                                        ShiftHoldAction.TAB,
+                                        ShiftHoldAction.NONE -> viewModel.pressKey(KeyDefinition("tab", "TAB", type = KeyType.MODIFIER))
                                         ShiftHoldAction.ESC -> viewModel.pressKey(KeyDefinition("esc", "ESC", type = KeyType.MODIFIER))
-                                        ShiftHoldAction.NONE -> Unit
                                     }
                                     showPopup = false
                                     break
@@ -473,7 +471,6 @@ fun RemappableKeyView(key: KeyDefinition) {
                 }
                 .clip(RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                 .background(keyBackground)
-                .border(0.5.dp, keyBorderColor, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
         ) {
             if (key.hint != null) {
                 Text(
@@ -493,7 +490,7 @@ fun RemappableKeyView(key: KeyDefinition) {
                     marcinlowercase.w.model.ShiftState.SHIFTED -> R.drawable.ic_shift_on
                     marcinlowercase.w.model.ShiftState.CAPS_LOCK -> R.drawable.ic_caps_lock
                 }
-                KeyType.BACKSPACE -> R.drawable.ic_backspace
+                KeyType.BACKSPACE -> if (isShiftActive) R.drawable.ic_delete else R.drawable.ic_backspace
                 KeyType.ENTER -> R.drawable.ic_new_line
                 else -> null
             }
@@ -521,22 +518,27 @@ fun RemappableKeyView(key: KeyDefinition) {
 
         val slotWidth = if (keycapWidthDp > 0.dp) keycapWidthDp else (KeyboardDimens.keyHeight * 0.65f)
         val slotHeight = KeyboardDimens.keyHeight
+        val primaryPopupMargin = KeyboardDimens.rowGap
+        val primaryPopupWidth = slotWidth + (primaryPopupMargin * 2)
+        val primaryPopupHeight = slotHeight + (primaryPopupMargin * 2)
 
         if (key.type == KeyType.CHARACTER) {
-            val previewPlacementY = -(KeyboardDimens.rowGap / 2) - slotHeight
+            val previewPlacementY = -(KeyboardDimens.rowGap + slotHeight + primaryPopupMargin)
 
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .offset(x = keycapCenterOffsetInCellDp, y = previewPlacementY)
-                    .requiredWidth(slotWidth)
-                    .requiredHeight(slotHeight)
+                    .requiredWidth(primaryPopupWidth)
+                    .requiredHeight(primaryPopupHeight)
                     .graphicsLayer {
                         alpha = if (isPressedDown && !showPopup) 1f else 0f
                     }
                     .shadow(elevation = 6.dp, shape = RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                     .background(Color(0xFF2563EB), RoundedCornerShape(KeyboardDimens.keyCornerRadius))
-                    .border(0.5.dp, Color(0xFF2563EB), RoundedCornerShape(KeyboardDimens.keyCornerRadius)),
+                    .border(0.5.dp, Color(0xFF2563EB), RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                    .padding(primaryPopupMargin)
+                ,
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -551,66 +553,53 @@ fun RemappableKeyView(key: KeyDefinition) {
 
         if (showPopup) {
             if (key.type == KeyType.SHIFT) {
-                val totalShiftHeight = (slotHeight * 3) + (KeyboardDimens.rowGap * 2)
-                val shiftPlacementY = -(KeyboardDimens.rowGap / 2) - totalShiftHeight
+                val shiftRowCount = 2
+                val popupMargin = KeyboardDimens.rowGap
+                val shiftPopupHeight = (slotHeight * shiftRowCount) + (KeyboardDimens.rowGap * (shiftRowCount - 1)) + (popupMargin * 2)
+                val shiftPopupWidth = slotWidth + (popupMargin * 2)
+                val shiftPlacementY = -(slotHeight * 1.5f + KeyboardDimens.rowGap * 1.5f + popupMargin)
 
-                Column(
+                Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .offset(x = keycapCenterOffsetInCellDp, y = shiftPlacementY)
                         .wrapContentSize(unbounded = true)
-                        .requiredWidth(slotWidth)
-                        .requiredHeight(totalShiftHeight)
+                        .requiredWidth(shiftPopupWidth)
+                        .requiredHeight(shiftPopupHeight)
                         .shadow(elevation = 6.dp, shape = RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                         .background(popupBg, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
-                        .border(0.5.dp, keyBorderColor, RoundedCornerShape(KeyboardDimens.keyCornerRadius)),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(KeyboardDimens.rowGap)
+                        .border(0.5.dp, popupBorder, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                        .padding(popupMargin)
                 ) {
-                    val isShiftMode = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
-                    val tabText = if (isShiftMode) "TAB" else "tab"
-                    val escText = if (isShiftMode) "ESC" else "esc"
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(KeyboardDimens.rowGap)
+                    ) {
+                        val isShiftMode = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
+                        val tabText = if (isShiftMode) "TAB" else "tab"
+                        val escText = if (isShiftMode) "ESC" else "esc"
 
-                    val shiftOptions = listOf(
-                        ShiftHoldAction.TAB,
-                        ShiftHoldAction.NONE,
-                        ShiftHoldAction.ESC
-                    )
+                        val shiftOptions = listOf(
+                            ShiftHoldAction.TAB,
+                            ShiftHoldAction.ESC
+                        )
 
-                    shiftOptions.forEach { action ->
-                        val isSelected = shiftHoldAction == action
-                        val itemColor = if (isSelected) Color.White else unselectedPopupTextColor
+                        shiftOptions.forEach { action ->
+                            val isSelected = shiftHoldAction == action
+                            val itemColor = if (isSelected) Color.White else unselectedPopupTextColor
 
-                        Box(
-                            modifier = Modifier
-                                .requiredWidth(slotWidth)
-                                .requiredHeight(slotHeight),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (isSelected) {
-                                Box(
-                                    modifier = Modifier
-                                        .requiredWidth(slotWidth - 6.dp)
-                                        .requiredHeight(slotHeight - 6.dp)
-                                        .background(Color(0xFF2563EB), RoundedCornerShape(KeyboardDimens.keyCornerRadius))
-                                )
-                            }
-                            when (action) {
-                                ShiftHoldAction.TAB -> Text(
-                                    text = tabText,
-                                    color = itemColor,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                                ShiftHoldAction.NONE -> Icon(
-                                    painter = painterResource(id = R.drawable.ic_shift_on),
-                                    contentDescription = null,
-                                    tint = itemColor,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                ShiftHoldAction.ESC -> Text(
-                                    text = escText,
+                            Box(
+                                modifier = Modifier
+                                    .requiredWidth(slotWidth)
+                                    .requiredHeight(slotHeight)
+                                    .background(
+                                        if (isSelected) Color(0xFF2563EB) else Color.Transparent,
+                                        RoundedCornerShape(KeyboardDimens.keyCornerRadius - KeyboardDimens.keyGap)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (action == ShiftHoldAction.TAB) tabText else escText,
                                     color = itemColor,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.SemiBold,
@@ -641,9 +630,9 @@ fun RemappableKeyView(key: KeyDefinition) {
 
                     val rowCount = (if (hasTop) 1 else 0) + 1 + (if (hasBottom) 1 else 0)
                     val colCount = (if (hasLeft) 1 else 0) + 1 + (if (hasRight) 1 else 0)
-
-                    val popupHeight = (slotHeight * rowCount) + (KeyboardDimens.rowGap * (rowCount - 1))
-                    val popupWidth = (slotWidth * colCount) + (KeyboardDimens.keyGap * (colCount - 1))
+                    val popupMargin = KeyboardDimens.rowGap
+                    val popupHeight = (slotHeight * rowCount) + (KeyboardDimens.rowGap * (rowCount - 1)) + (popupMargin * 2)
+                    val popupWidth = (slotWidth * colCount) + (KeyboardDimens.keyGap * (colCount - 1)) + (popupMargin * 2)
 
                     val xOffset = when {
                         !hasLeft && hasRight -> (slotWidth + KeyboardDimens.keyGap) / 2
@@ -652,9 +641,9 @@ fun RemappableKeyView(key: KeyDefinition) {
                     }
 
                     val popupPlacementY = when (rowCount) {
-                        3 -> -(slotHeight * 2 + KeyboardDimens.rowGap * 2)
-                        2 -> -(slotHeight * 1.5f + KeyboardDimens.rowGap * 1.5f)
-                        1 -> -(KeyboardDimens.rowGap / 2 + slotHeight)
+                        3 -> -(slotHeight * 2 + KeyboardDimens.rowGap * 2 + popupMargin)
+                        2 -> -(slotHeight * 1.5f + KeyboardDimens.rowGap * 1.5f + popupMargin)
+                        1 -> -(KeyboardDimens.rowGap + slotHeight + popupMargin)
                         else -> 0.dp
                     }
 
@@ -671,6 +660,7 @@ fun RemappableKeyView(key: KeyDefinition) {
                             .shadow(elevation = 6.dp, shape = RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                             .background(popupBg, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                             .border(0.5.dp, popupBorder, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                            .padding(popupMargin)
                     ) {
                         Column(
                             modifier = Modifier.fillMaxSize(),
@@ -690,12 +680,12 @@ fun RemappableKeyView(key: KeyDefinition) {
                                             .requiredHeight(slotHeight)
                                             .background(
                                                 if (isSelected) Color(0xFF2563EB) else Color.Transparent,
-                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius)
+                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius - KeyboardDimens.keyGap)
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
-                                            text = sec.top ?: "",
+                                            text = sec.top,
                                             color = if (isSelected) Color.White else unselectedPopupTextColor,
                                             fontSize = 22.sp,
                                             fontWeight = FontWeight.SemiBold,
@@ -719,12 +709,12 @@ fun RemappableKeyView(key: KeyDefinition) {
                                             .requiredHeight(slotHeight)
                                             .background(
                                                 if (isSelected) Color(0xFF2563EB) else Color.Transparent,
-                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius)
+                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius - KeyboardDimens.keyGap)
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
-                                            text = sec.left ?: "",
+                                            text = sec.left,
                                             color = if (isSelected) Color.White else unselectedPopupTextColor,
                                             fontSize = 22.sp,
                                             fontWeight = FontWeight.SemiBold,
@@ -740,7 +730,7 @@ fun RemappableKeyView(key: KeyDefinition) {
                                         .requiredHeight(slotHeight)
                                         .background(
                                             if (isCenterSelected) Color(0xFF2563EB) else Color.Transparent,
-                                            RoundedCornerShape(KeyboardDimens.keyCornerRadius)
+                                            RoundedCornerShape(KeyboardDimens.keyCornerRadius - KeyboardDimens.keyGap)
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -761,12 +751,12 @@ fun RemappableKeyView(key: KeyDefinition) {
                                             .requiredHeight(slotHeight)
                                             .background(
                                                 if (isSelected) Color(0xFF2563EB) else Color.Transparent,
-                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius)
+                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius - KeyboardDimens.keyGap)
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
-                                            text = sec.right ?: "",
+                                            text = sec.right,
                                             color = if (isSelected) Color.White else unselectedPopupTextColor,
                                             fontSize = 22.sp,
                                             fontWeight = FontWeight.SemiBold,
@@ -790,12 +780,12 @@ fun RemappableKeyView(key: KeyDefinition) {
                                             .requiredHeight(slotHeight)
                                             .background(
                                                 if (isSelected) Color(0xFF2563EB) else Color.Transparent,
-                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius)
+                                                RoundedCornerShape(KeyboardDimens.keyCornerRadius - KeyboardDimens.keyGap)
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
-                                            text = sec.bottom ?: "",
+                                            text = sec.bottom,
                                             color = if (isSelected) Color.White else unselectedPopupTextColor,
                                             fontSize = 22.sp,
                                             fontWeight = FontWeight.SemiBold,
@@ -818,11 +808,12 @@ fun SpaceKeyView(key: KeyDefinition) {
     val viewModel = LocalKeyboardViewModel.current
     val view = LocalView.current
     val isDark = isSystemInDarkTheme()
+    val isShiftOn = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
 
-    val spaceBg = if (isDark) Color(0xFF1C1C1E) else Color.White
-    val spaceBorder = if (isDark) Color(0xFF38383A) else Color(0xFFD1D5DB)
+    val spaceBg = if (isDark) Color(0xFF1C1C1E) else Color(0xFFEEEEEE)
     val spaceTextColor = if (isDark) Color(0xFF8E8E93) else Color(0xFF9CA3AF)
     val cellHeight = KeyboardDimens.keyHeight + KeyboardDimens.rowGap
+    val spaceLabel = if (isShiftOn) "SPACE" else "space"
 
     Box(
         modifier = Modifier
@@ -876,14 +867,13 @@ fun SpaceKeyView(key: KeyDefinition) {
             )
             .clip(RoundedCornerShape(KeyboardDimens.keyCornerRadius))
             .background(spaceBg)
-            .border(0.5.dp, spaceBorder, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "space",
+                text = spaceLabel,
                 color = spaceTextColor,
                 fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace

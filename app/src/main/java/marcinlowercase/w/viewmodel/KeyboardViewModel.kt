@@ -10,7 +10,6 @@ import marcinlowercase.w.model.ShiftState
 class KeyboardViewModel : ViewModel() {
     val layoutConfig = mutableStateOf(DefaultLayout.create())
     val shiftState = mutableStateOf(ShiftState.OFF)
-    val isShiftPhysicallyHeld = mutableStateOf(false)
     val ctrlArmed = mutableStateOf(false)
     val altArmed = mutableStateOf(false)
     val ctrlShiftArmed = mutableStateOf(false)
@@ -41,13 +40,15 @@ class KeyboardViewModel : ViewModel() {
     }
 
     fun resolveDisplayedChar(key: KeyDefinition): String {
-        val currentShift = shiftState.value
+        val isShiftOn = shiftState.value != ShiftState.OFF
+        val isSingleShifted = shiftState.value == ShiftState.SHIFTED
+
         return if (key.type == KeyType.CHARACTER) {
             when {
-                key.primaryChar.length == 1 && key.primaryChar[0].isLetter() && currentShift != ShiftState.OFF -> {
+                key.primaryChar.length == 1 && key.primaryChar[0].isLetter() && isShiftOn -> {
                     key.primaryChar.uppercase()
                 }
-                currentShift == ShiftState.SHIFTED -> {
+                isSingleShifted -> {
                     when (key.primaryChar) {
                         "1" -> "!"
                         "2" -> "@"
@@ -66,9 +67,9 @@ class KeyboardViewModel : ViewModel() {
             }
         } else if (key.type == KeyType.MODIFIER) {
             when (key.id) {
-                "ctrl" -> if (ctrlShiftArmed.value || currentShift != ShiftState.OFF) "CTRL" else "ctrl"
-                "alt" -> if (altShiftArmed.value || currentShift != ShiftState.OFF) "ALT" else "alt"
-                else -> if (currentShift != ShiftState.OFF) key.primaryChar.uppercase() else key.primaryChar.lowercase()
+                "ctrl" -> if (ctrlShiftArmed.value || isShiftOn) "CTRL" else "ctrl"
+                "alt" -> if (altShiftArmed.value || isShiftOn) "ALT" else "alt"
+                else -> if (isShiftOn) key.primaryChar.uppercase() else key.primaryChar.lowercase()
             }
         } else {
             key.primaryChar
@@ -158,7 +159,7 @@ class KeyboardViewModel : ViewModel() {
     }
 
     fun glideCursor(delta: Int): Boolean {
-        return onCursorGlideHandler?.invoke(delta, isShiftPhysicallyHeld.value) ?: false
+        return onCursorGlideHandler?.invoke(delta, shiftState.value == ShiftState.SHIFTED) ?: false
     }
 
     fun onGlideEnd() {
