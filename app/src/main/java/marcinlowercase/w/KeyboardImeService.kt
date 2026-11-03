@@ -22,6 +22,11 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import marcinlowercase.w.data.KeyboardPreferences
 import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
 import marcinlowercase.w.model.ShiftState
@@ -30,6 +35,9 @@ import marcinlowercase.w.ui.KeyboardView
 import marcinlowercase.w.viewmodel.KeyboardViewModel
 
 class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private lateinit var preferences: KeyboardPreferences
 
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val appViewModelStore = ViewModelStore()
@@ -64,6 +72,12 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
 
     override fun onCreate() {
         super.onCreate()
+        preferences = KeyboardPreferences(this)
+        serviceScope.launch {
+            preferences.bottomPaddingDp.collect { padding ->
+                viewModel.bottomChinPaddingDp.value = padding
+            }
+        }
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
     }

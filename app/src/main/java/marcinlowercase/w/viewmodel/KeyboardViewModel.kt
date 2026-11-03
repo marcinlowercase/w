@@ -10,6 +10,7 @@ import marcinlowercase.w.model.ShiftState
 class KeyboardViewModel : ViewModel() {
     val layoutConfig = mutableStateOf(DefaultLayout.create())
     val shiftState = mutableStateOf(ShiftState.OFF)
+    val bottomChinPaddingDp = mutableStateOf(32)
     val ctrlArmed = mutableStateOf(false)
     val altArmed = mutableStateOf(false)
     val ctrlShiftArmed = mutableStateOf(false)

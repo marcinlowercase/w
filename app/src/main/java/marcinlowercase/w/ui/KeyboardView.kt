@@ -77,7 +77,6 @@ object KeyboardDimens {
     val rowGap = 4.dp
     val keyGap = 4.dp
     val ribbonHeight = 38.dp
-    val bottomChinPadding = 32.dp
     val keyCornerRadius = 12.dp
 }
 
@@ -105,16 +104,18 @@ fun KeyboardView(
         ) {
             Spacer(modifier = Modifier.height(KeyboardDimens.popupHeadroom))
 
+            val dynamicBottomPadding = viewModel.bottomChinPaddingDp.value.dp
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(keyboardBgColor)
                     .navigationBarsPadding()
                     .padding(
-                        start = KeyboardDimens.keyGap/2 ,
-                        end = KeyboardDimens.keyGap/2,
-                        top = KeyboardDimens.keyGap/2,
-                        bottom = KeyboardDimens.bottomChinPadding
+                        start = KeyboardDimens.keyGap / 2,
+                        end = KeyboardDimens.keyGap / 2,
+                        top = KeyboardDimens.keyGap / 2,
+                        bottom = 0.dp
                     )
             ) {
                 if (config.ribbon.isNotEmpty()) {
@@ -122,7 +123,8 @@ fun KeyboardView(
                     Spacer(modifier = Modifier.height(KeyboardDimens.rowGap))
                 }
 
-                config.rows.forEach { row ->
+                config.rows.forEachIndexed { rowIndex, row ->
+                    val isBottomRow = rowIndex == config.rows.lastIndex
                     Row(
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -155,9 +157,9 @@ fun KeyboardView(
 
                                 Box(modifier = boxModifier) {
                                     if (key.type == KeyType.SPACE) {
-                                        SpaceKeyView(key = key)
+                                        SpaceKeyView(key = key, isBottomRow = isBottomRow)
                                     } else {
-                                        RemappableKeyView(key = key)
+                                        RemappableKeyView(key = key, isBottomRow = isBottomRow)
                                     }
                                 }
                             }
@@ -219,7 +221,7 @@ enum class ShiftHoldAction {
 }
 
 @Composable
-fun RemappableKeyView(key: KeyDefinition) {
+fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     val viewModel = LocalKeyboardViewModel.current
     val view = LocalView.current
     val density = LocalDensity.current
@@ -274,7 +276,8 @@ fun RemappableKeyView(key: KeyDefinition) {
         else -> Alignment.Center
     }
 
-    val cellHeight = KeyboardDimens.keyHeight + KeyboardDimens.rowGap
+    val extraBottomPadding = if (isBottomRow) viewModel.bottomChinPaddingDp.value.dp else 0.dp
+    val cellHeight = KeyboardDimens.keyHeight + KeyboardDimens.rowGap + extraBottomPadding
 
     Box(
         modifier = Modifier
@@ -436,8 +439,10 @@ fun RemappableKeyView(key: KeyDefinition) {
                     alpha = if (activeId != null && activeId != key.id) 0.35f else 1f
                 }
                 .padding(
-                    horizontal = KeyboardDimens.keyGap / 2,
-                    vertical = KeyboardDimens.rowGap / 2
+                    start = KeyboardDimens.keyGap / 2,
+                    end = KeyboardDimens.keyGap / 2,
+                    top = KeyboardDimens.rowGap / 2,
+                    bottom = (KeyboardDimens.rowGap / 2) + extraBottomPadding
                 )
                 .onGloballyPositioned { coordinates ->
                     val rootWidth = coordinates.findRootCoordinates().size.width.toFloat()
@@ -822,15 +827,16 @@ fun RemappableKeyView(key: KeyDefinition) {
 }
 
 @Composable
-fun SpaceKeyView(key: KeyDefinition) {
+fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     val viewModel = LocalKeyboardViewModel.current
     val view = LocalView.current
     val isDark = isSystemInDarkTheme()
     val isShiftOn = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
 
+    val extraBottomPadding = if (isBottomRow) viewModel.bottomChinPaddingDp.value.dp else 0.dp
     val spaceBg = if (isDark) Color(0xFF1C1C1E) else Color(0xFFEEEEEE)
     val spaceTextColor = if (isDark) Color(0xFF8E8E93) else Color(0xFF9CA3AF)
-    val cellHeight = KeyboardDimens.keyHeight + KeyboardDimens.rowGap
+    val cellHeight = KeyboardDimens.keyHeight + KeyboardDimens.rowGap + extraBottomPadding
     val spaceLabel = if (isShiftOn) "SPACE" else "space"
 
     Box(
@@ -880,8 +886,10 @@ fun SpaceKeyView(key: KeyDefinition) {
                 alpha = if (viewModel.activePopupKeyId.value != null) 0.35f else 1f
             }
             .padding(
-                horizontal = KeyboardDimens.keyGap / 2,
-                vertical = KeyboardDimens.rowGap / 2
+                start = KeyboardDimens.keyGap / 2,
+                end = KeyboardDimens.keyGap / 2,
+                top = KeyboardDimens.rowGap / 2,
+                bottom = (KeyboardDimens.rowGap / 2) + extraBottomPadding
             )
             .clip(RoundedCornerShape(KeyboardDimens.keyCornerRadius))
             .background(spaceBg)
