@@ -15,6 +15,7 @@ class KeyboardViewModel : ViewModel() {
     val altArmed = mutableStateOf(false)
     val ctrlShiftArmed = mutableStateOf(false)
     val altShiftArmed = mutableStateOf(false)
+    val activePopupKeyId = mutableStateOf<String?>(null)
     private var lastShiftPressTime = 0L
 
     var onKeyPressHandler: ((KeyDefinition, Int) -> Boolean)? = null
