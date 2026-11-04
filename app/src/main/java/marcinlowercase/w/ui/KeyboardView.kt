@@ -264,10 +264,10 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
 
     val keyBackground = when {
         isModifierArmed -> highlightColor
+        isPressedDown -> if (isDark) Color.Black else Color.White
         key.type == KeyType.CHARACTER -> if (isDark) Color(0xFF1C1C1E) else Color(0xFFEEEEEE)
         else -> if (isDark) Color(0xFF2C2C2E) else Color(0xFFDCE0E5)
     }
-
     val keyTextColor = when {
         isModifierArmed -> onHighlightColor
         isDark -> Color.White
@@ -916,11 +916,16 @@ fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     val viewModel = LocalKeyboardViewModel.current
     val view = LocalView.current
     val isDark = isSystemInDarkTheme()
+    var isPressedDown by remember { mutableStateOf(false) }
     val isShiftOn = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
 
     val extraBottomPadding = if (isBottomRow) viewModel.bottomChinPaddingDp.value.dp else 0.dp
-    val spaceBg = if (isDark) Color(0xFF1C1C1E) else Color(0xFFEEEEEE)
-    val spaceTextColor = if (isDark) Color(0xFF8E8E93) else Color(0xFF9CA3AF)
+    val spaceBg = when {
+        isPressedDown -> if (isDark) Color(0xFF323236) else Color(0xFFD1D5DB)
+        isDark -> Color(0xFF1C1C1E)
+        else -> Color(0xFFEEEEEE)
+    }
+    val spaceTextColor = if (isDark) Color.White else Color.Black
     val cellHeight = KeyboardDimens.keyHeight + KeyboardDimens.rowGap + extraBottomPadding
     val spaceLabel = if (isShiftOn) "SPACE" else "space"
 
@@ -932,6 +937,7 @@ fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
                     view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    isPressedDown = true
 
                     var accumulatedDrag = 0f
                     val stepThreshold = 30f
@@ -942,6 +948,7 @@ fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                         val change = event.changes.firstOrNull() ?: break
 
                         if (!change.pressed) {
+                            isPressedDown = false
                             if (!hasGlided) {
                                 viewModel.pressKey(key)
                             } else {

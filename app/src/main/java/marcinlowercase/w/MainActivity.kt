@@ -79,7 +79,7 @@ fun SettingsTopBar() {
     TopAppBar(
         title = {
             Text(
-                text = "w keyboard",
+                text = "the keyboard of oo1 studio",
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace
             )
