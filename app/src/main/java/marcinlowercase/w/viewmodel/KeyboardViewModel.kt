@@ -1,5 +1,6 @@
 package marcinlowercase.w.viewmodel
 
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
@@ -15,6 +16,7 @@ class KeyboardViewModel : ViewModel() {
     val shiftState = mutableStateOf(ShiftState.OFF)
     val bottomChinPaddingDp = mutableStateOf(32)
     val highlightColor = mutableStateOf(Color(0xFF001FFF))
+    val fontFamily = mutableStateOf<FontFamily>(FontFamily.Monospace)
     val ctrlArmed = mutableStateOf(false)
     val altArmed = mutableStateOf(false)
     val ctrlShiftArmed = mutableStateOf(false)

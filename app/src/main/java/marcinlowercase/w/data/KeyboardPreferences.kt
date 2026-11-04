@@ -16,6 +16,8 @@ class KeyboardPreferences(private val context: Context) {
         val KEY_BOTTOM_PADDING = intPreferencesKey("bottom_chin_padding")
         val KEY_LAYOUT_CONFIG_JSON = stringPreferencesKey("layout_config_json")
         val KEY_HIGHLIGHT_COLOR = androidx.datastore.preferences.core.longPreferencesKey("highlight_color_long")
+        val KEY_CUSTOM_FONT_PATH = stringPreferencesKey("custom_font_path")
+        val KEY_CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
     }
 
     val bottomPaddingDp: Flow<Int> = context.dataStore.data.map { preferences ->
@@ -35,6 +37,26 @@ class KeyboardPreferences(private val context: Context) {
     suspend fun setHighlightColorLong(colorValue: Long) {
         context.dataStore.edit { preferences ->
             preferences[KEY_HIGHLIGHT_COLOR] = colorValue
+        }
+    }
+
+    val customFontPath: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[KEY_CUSTOM_FONT_PATH]
+    }
+
+    val customFontName: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[KEY_CUSTOM_FONT_NAME]
+    }
+
+    suspend fun setCustomFont(path: String?, name: String?) {
+        context.dataStore.edit { preferences ->
+            if (path == null) {
+                preferences.remove(KEY_CUSTOM_FONT_PATH)
+                preferences.remove(KEY_CUSTOM_FONT_NAME)
+            } else {
+                preferences[KEY_CUSTOM_FONT_PATH] = path
+                preferences[KEY_CUSTOM_FONT_NAME] = name ?: "Custom Font"
+            }
         }
     }
 

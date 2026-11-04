@@ -28,6 +28,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import marcinlowercase.w.data.KeyboardPreferences
 import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
@@ -36,6 +38,7 @@ import marcinlowercase.w.model.ShiftState
 import marcinlowercase.w.ui.KeyboardDimens
 import marcinlowercase.w.ui.KeyboardView
 import marcinlowercase.w.viewmodel.KeyboardViewModel
+import java.io.File
 
 class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
@@ -87,6 +90,11 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             }
         }
         serviceScope.launch {
+            preferences.customFontPath.collect { path ->
+                viewModel.fontFamily.value = loadFontFamilyFromPath(path)
+            }
+        }
+        serviceScope.launch {
             preferences.layoutConfigJson.collect { jsonString ->
                 if (!jsonString.isNullOrEmpty()) {
                     runCatching {
@@ -112,6 +120,17 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         super.onConfigurationChanged(newConfig)
         window?.window?.let { win ->
             applyNavigationBarTheme(win)
+        }
+    }
+
+    private fun loadFontFamilyFromPath(path: String?): FontFamily {
+        if (path.isNullOrEmpty()) return FontFamily.Monospace
+        val file = File(path)
+        if (!file.exists() || !file.canRead()) return FontFamily.Monospace
+        return try {
+            FontFamily(Font(file))
+        } catch (_: Exception) {
+            FontFamily.Monospace
         }
     }
 

@@ -181,6 +181,7 @@ fun RibbonRow(keys: List<KeyDefinition>) {
     val viewModel = LocalKeyboardViewModel.current
     val view = LocalView.current
     val isDark = isSystemInDarkTheme()
+    val activeFont = viewModel.fontFamily.value
 
     val ribbonBg = if (isDark) Color(0xFF1C1C1E) else Color(0xFFEEEEEE)
     val ribbonTextColor = if (isDark) Color.White else Color.Black
@@ -211,7 +212,7 @@ fun RibbonRow(keys: List<KeyDefinition>) {
                         color = ribbonTextColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = activeFont
                     )
                 }
             }
@@ -277,6 +278,8 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     val popupBg = if (isDark) Color(0xFF1C1C1E) else Color(0xFFEEEEEE)
 //    val popupBorder = if (isDark) Color(0xFF38383A) else Color(0xFFD1D5DB)
     val unselectedPopupTextColor = if (isDark) Color.White else Color.Black
+
+    val activeFont = viewModel.fontFamily.value
 
     val visualWidthFraction = if (key.id == "a" || key.id == "l") 0.666667f else 1f
     val visualAlignment = when (key.id) {
@@ -497,7 +500,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                     text = key.hint,
                     color = hintColor,
                     fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = activeFont,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 2.dp, end = 4.dp)
@@ -542,7 +545,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                     color = keyTextColor,
                     fontSize = labelFontSize,
                     fontWeight = if (key.type == KeyType.MODIFIER) FontWeight.SemiBold else FontWeight.Medium,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = activeFont,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.align(Alignment.Center)
@@ -592,7 +595,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                     text = previewLabel,
                     fontSize = previewFontSize,
                     fontWeight = FontWeight.SemiBold,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = activeFont,
                     color = onHighlightColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -657,7 +660,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                     color = itemColor,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    fontFamily = FontFamily.Monospace
+                                    fontFamily = activeFont
                                 )
                             }
                         }
@@ -755,7 +758,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
                                             fontSize = topFontSize,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontFamily = FontFamily.Monospace,
+                                            fontFamily = activeFont,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -793,7 +796,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
                                             fontSize = leftFontSize,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontFamily = FontFamily.Monospace,
+                                            fontFamily = activeFont,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -824,7 +827,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                         color = if (isCenterSelected) onHighlightColor else unselectedPopupTextColor,
                                         fontSize = centerFontSize,
                                         fontWeight = FontWeight.SemiBold,
-                                        fontFamily = FontFamily.Monospace,
+                                        fontFamily = activeFont,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -854,7 +857,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
                                             fontSize = rightFontSize,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontFamily = FontFamily.Monospace,
+                                            fontFamily = activeFont,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -892,7 +895,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
                                             fontSize = bottomFontSize,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontFamily = FontFamily.Monospace,
+                                            fontFamily = activeFont,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -984,7 +987,7 @@ fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                 text = spaceLabel,
                 color = spaceTextColor,
                 fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace
+                fontFamily = viewModel.fontFamily.value
             )
         }
     }

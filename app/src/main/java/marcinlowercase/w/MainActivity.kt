@@ -44,6 +44,7 @@ import marcinlowercase.w.model.KeyboardLayoutConfig
 import marcinlowercase.w.model.KeyboardRow
 import marcinlowercase.w.model.SecondaryBindings
 import marcinlowercase.w.ui.theme.WTheme
+import java.io.File
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -99,7 +100,27 @@ fun SettingsScreen(
     val preferences = remember { KeyboardPreferences(context) }
     val bottomPaddingState = preferences.bottomPaddingDp.collectAsState(initial = 24)
     val highlightColorState = preferences.highlightColorLong.collectAsState(initial = 0xFF001FFFL)
+    val customFontNameState = preferences.customFontName.collectAsState(initial = null)
     var testInputText by remember { mutableStateOf("") }
+
+    val fontPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            coroutineScope.launch {
+                runCatching {
+                    val fontFile = File(context.filesDir, "custom_keyboard_font.ttf")
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        fontFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "Custom Font"
+                    preferences.setCustomFont(fontFile.absolutePath, fileName)
+                }
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -119,6 +140,73 @@ fun SettingsScreen(
                 }
             }
         )
+
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Keyboard Font",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "Import any TTF or OTF font file (like JetBrains Mono, Fira Code, or Hack) to use on all keycaps.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Current Font:",
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = customFontNameState.value ?: "Default Monospace",
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        color = Color(0xFF2563EB)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    FilledTonalButton(
+                        onClick = {
+                            fontPickerLauncher.launch(arrayOf("*/*"))
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Import Font")
+                    }
+
+                    if (customFontNameState.value != null) {
+                        OutlinedButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    val fontFile = File(context.filesDir, "custom_keyboard_font.ttf")
+                                    if (fontFile.exists()) fontFile.delete()
+                                    preferences.setCustomFont(null, null)
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Reset")
+                        }
+                    }
+                }
+            }
+        }
 
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
