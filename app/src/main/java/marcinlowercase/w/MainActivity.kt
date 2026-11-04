@@ -17,6 +17,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -25,11 +26,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toColorLong
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.ColorUtils
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import marcinlowercase.w.data.KeyboardPreferences
@@ -93,7 +97,8 @@ fun SettingsScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val preferences = remember { KeyboardPreferences(context) }
-    val bottomPaddingState = preferences.bottomPaddingDp.collectAsState(initial = 32)
+    val bottomPaddingState = preferences.bottomPaddingDp.collectAsState(initial = 24)
+    val highlightColorState = preferences.highlightColorLong.collectAsState(initial = 0xFF001FFFL)
     var testInputText by remember { mutableStateOf("") }
 
     Column(
@@ -105,6 +110,15 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         StatusCard(context)
+
+        ColorPickerCard(
+            currentColorLong = highlightColorState.value,
+            onColorChanged = { colorVal ->
+                coroutineScope.launch {
+                    preferences.setHighlightColorLong(colorVal)
+                }
+            }
+        )
 
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
@@ -272,6 +286,9 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
         }
     }
 
+    val highlightColorState = preferences.highlightColorLong.collectAsState(initial = 0xFF001FFF)
+    val activeAccent = Color(highlightColorState.value)
+
     val selectedKey = remember(layoutConfig, selectedKeyId) {
         layoutConfig.rows.flatMap { it.keys }.find { it.id == selectedKeyId }
     }
@@ -383,13 +400,14 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                 } else {
                                     val isCharacterKey = key.type == KeyType.CHARACTER
                                     val isSelected = isCharacterKey && key.id == selectedKeyId
+                                    val onAccent = if (activeAccent.luminance() > 0.5f) Color.Black else Color.White
                                     val keyBg = when {
-                                        isSelected -> Color(0xFF2563EB)
+                                        isSelected -> activeAccent
                                         isCharacterKey -> MaterialTheme.colorScheme.surfaceVariant
                                         else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
                                     }
                                     val textColor = when {
-                                        isSelected -> Color.White
+                                        isSelected -> onAccent
                                         isCharacterKey -> MaterialTheme.colorScheme.onSurfaceVariant
                                         else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                                     }
@@ -541,6 +559,76 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun ColorPickerCard(
+    currentColorLong: Long,
+    onColorChanged: (Long) -> Unit
+) {
+    val currentColor = Color(currentColorLong)
+    val onColor = if (currentColor.luminance() > 0.5f) Color.Black else Color.White
+    val hexCode = remember(currentColorLong) {
+        String.format("#%06X", (currentColorLong and 0xFFFFFFL))
+    }
+    var hexInput by remember(currentColorLong) { mutableStateOf(hexCode) }
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = "Highlight Color",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "Enter any 6-digit hex code to customize the active modifiers and popup highlight.",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(currentColor)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Sample Key $hexCode",
+                    color = onColor,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+
+            OutlinedTextField(
+                value = hexInput,
+                onValueChange = { input ->
+                    hexInput = input
+                    val clean = input.removePrefix("#").trim()
+                    if (clean.length == 6) {
+                        clean.toLongOrNull(16)?.let { parsedRgb ->
+                            val fullColor = 0xFF000000L or parsedRgb
+                            onColorChanged(fullColor)
+                        }
+                    }
+                },
+                label = { Text("Hex Color Code") },
+                placeholder = { Text("#RRGGBB") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

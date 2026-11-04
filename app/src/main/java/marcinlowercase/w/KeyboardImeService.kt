@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import androidx.compose.ui.graphics.Color
 import marcinlowercase.w.data.KeyboardPreferences
 import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
@@ -78,6 +79,11 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         serviceScope.launch {
             preferences.bottomPaddingDp.collect { padding ->
                 viewModel.bottomChinPaddingDp.value = padding
+            }
+        }
+        serviceScope.launch {
+            preferences.highlightColorLong.collect { colorVal ->
+                viewModel.highlightColor.value = Color(colorVal)
             }
         }
         serviceScope.launch {

@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -182,7 +183,7 @@ fun RibbonRow(keys: List<KeyDefinition>) {
     val isDark = isSystemInDarkTheme()
 
     val ribbonBg = if (isDark) Color(0xFF1C1C1E) else Color(0xFFEEEEEE)
-    val ribbonTextColor = if (isDark) Color.White else Color(0xFF0F172A)
+    val ribbonTextColor = if (isDark) Color.White else Color.Black
 
     Row(
         modifier = Modifier
@@ -250,30 +251,32 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
         },
         label = "popupTransition"
     )
+    val highlightColor = viewModel.highlightColor.value
+    val onHighlightColor = if (highlightColor.luminance() > 0.5f) Color.Black else Color.White
 
     val isShiftActive = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
-    val isCtrlArmed = liveKey.id == "ctrl" && viewModel.ctrlArmed.value
-    val isAltArmed = liveKey.id == "alt" && viewModel.altArmed.value
-    val isModifierArmed = (liveKey.type == KeyType.SHIFT && isShiftActive) || isCtrlArmed || isAltArmed
+    val isCtrlArmed = key.id == "ctrl" && viewModel.ctrlArmed.value
+    val isAltArmed = key.id == "alt" && viewModel.altArmed.value
+    val isModifierArmed = (key.type == KeyType.SHIFT && isShiftActive) || isCtrlArmed || isAltArmed
 
-    val displayedChar = viewModel.resolveDisplayedChar(liveKey)
+    val displayedChar = viewModel.resolveDisplayedChar(key)
 
     val keyBackground = when {
-        isModifierArmed -> Color(0xFF2563EB)
+        isModifierArmed -> highlightColor
         key.type == KeyType.CHARACTER -> if (isDark) Color(0xFF1C1C1E) else Color(0xFFEEEEEE)
         else -> if (isDark) Color(0xFF2C2C2E) else Color(0xFFDCE0E5)
     }
 
     val keyTextColor = when {
-        isModifierArmed -> Color.White
+        isModifierArmed -> onHighlightColor
         isDark -> Color.White
-        else -> Color(0xFF111827)
+        else -> Color.Black
     }
 
     val hintColor = if (isDark) Color(0xFF8E8E93) else Color(0xFF9CA3AF)
-    val popupBg = if (isDark) Color(0xFF1C1C1E) else Color.White
-    val popupBorder = if (isDark) Color(0xFF38383A) else Color(0xFFD1D5DB)
-    val unselectedPopupTextColor = if (isDark) Color.White else Color(0xFF111827)
+    val popupBg = if (isDark) Color(0xFF1C1C1E) else Color(0xFFEEEEEE)
+//    val popupBorder = if (isDark) Color(0xFF38383A) else Color(0xFFD1D5DB)
+    val unselectedPopupTextColor = if (isDark) Color.White else Color.Black
 
     val visualWidthFraction = if (key.id == "a" || key.id == "l") 0.666667f else 1f
     val visualAlignment = when (key.id) {
@@ -572,8 +575,8 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                         }
                         alpha = previewAlpha
                     }
-                    .background(Color(0xFF2563EB), RoundedCornerShape(KeyboardDimens.keyCornerRadius))
-                    .border(0.5.dp, Color(0xFF2563EB), RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                    .background(highlightColor, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+                    .border(0.5.dp, highlightColor, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                     .padding(primaryPopupMargin),
                 contentAlignment = Alignment.Center
             ) {
@@ -590,7 +593,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                     fontSize = previewFontSize,
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = FontFamily.Monospace,
-                    color = Color.White,
+                    color = onHighlightColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -619,7 +622,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                             transformOrigin = TransformOrigin(0.5f, 1f)
                         }
                         .background(popupBg, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
-                        .border(0.5.dp, popupBorder, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+//                        .border(0.5.dp, popupBorder, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                         .padding(popupMargin)
                 ) {
                     Column(
@@ -637,14 +640,14 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
 
                         shiftOptions.forEach { action ->
                             val isSelected = shiftHoldAction == action
-                            val itemColor = if (isSelected) Color.White else unselectedPopupTextColor
+                            val itemColor = if (isSelected) onHighlightColor else unselectedPopupTextColor
 
                             Box(
                                 modifier = Modifier
                                     .requiredWidth(slotWidth)
                                     .requiredHeight(slotHeight)
                                     .background(
-                                        if (isSelected) Color(0xFF2563EB) else Color.Transparent,
+                                        if (isSelected) highlightColor else Color.Transparent,
                                         RoundedCornerShape(KeyboardDimens.keyCornerRadius - KeyboardDimens.keyGap)
                                     ),
                                 contentAlignment = Alignment.Center
@@ -715,7 +718,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                 transformOrigin = TransformOrigin(0.5f, 1f)
                             }
                             .background(popupBg, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
-                            .border(0.5.dp, popupBorder, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
+//                            .border(0.5.dp, popupBorder, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                             .padding(popupMargin)
                     ) {
                         Column(
@@ -735,7 +738,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             .requiredWidth(slotWidth)
                                             .requiredHeight(slotHeight)
                                             .background(
-                                                if (isSelected) Color(0xFF2563EB) else Color.Transparent,
+                                                if (isSelected) highlightColor else Color.Transparent,
                                                 RoundedCornerShape(KeyboardDimens.keyCornerRadius - KeyboardDimens.keyGap)
                                             ),
                                         contentAlignment = Alignment.Center
@@ -749,7 +752,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
 
                                         Text(
                                             text = sec.top,
-                                            color = if (isSelected) Color.White else unselectedPopupTextColor,
+                                            color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
                                             fontSize = topFontSize,
                                             fontWeight = FontWeight.SemiBold,
                                             fontFamily = FontFamily.Monospace,
@@ -773,7 +776,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             .requiredWidth(slotWidth)
                                             .requiredHeight(slotHeight)
                                             .background(
-                                                if (isSelected) Color(0xFF2563EB) else Color.Transparent,
+                                                if (isSelected) highlightColor else Color.Transparent,
                                                 RoundedCornerShape(KeyboardDimens.keyCornerRadius - KeyboardDimens.keyGap)
                                             ),
                                         contentAlignment = Alignment.Center
@@ -787,7 +790,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
 
                                         Text(
                                             text = sec.left,
-                                            color = if (isSelected) Color.White else unselectedPopupTextColor,
+                                            color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
                                             fontSize = leftFontSize,
                                             fontWeight = FontWeight.SemiBold,
                                             fontFamily = FontFamily.Monospace,
@@ -803,7 +806,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                         .requiredWidth(slotWidth)
                                         .requiredHeight(slotHeight)
                                         .background(
-                                            if (isCenterSelected) Color(0xFF2563EB) else Color.Transparent,
+                                            if (isCenterSelected) highlightColor else Color.Transparent,
                                             RoundedCornerShape(KeyboardDimens.keyCornerRadius - KeyboardDimens.keyGap)
                                         ),
                                     contentAlignment = Alignment.Center
@@ -818,7 +821,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
 
                                     Text(
                                         text = centerText,
-                                        color = if (isCenterSelected) Color.White else unselectedPopupTextColor,
+                                        color = if (isCenterSelected) onHighlightColor else unselectedPopupTextColor,
                                         fontSize = centerFontSize,
                                         fontWeight = FontWeight.SemiBold,
                                         fontFamily = FontFamily.Monospace,
@@ -834,7 +837,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             .requiredWidth(slotWidth)
                                             .requiredHeight(slotHeight)
                                             .background(
-                                                if (isSelected) Color(0xFF2563EB) else Color.Transparent,
+                                                if (isSelected) highlightColor else Color.Transparent,
                                                 RoundedCornerShape(KeyboardDimens.keyCornerRadius - KeyboardDimens.keyGap)
                                             ),
                                         contentAlignment = Alignment.Center
@@ -848,7 +851,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
 
                                         Text(
                                             text = sec.right,
-                                            color = if (isSelected) Color.White else unselectedPopupTextColor,
+                                            color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
                                             fontSize = rightFontSize,
                                             fontWeight = FontWeight.SemiBold,
                                             fontFamily = FontFamily.Monospace,
@@ -872,7 +875,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             .requiredWidth(slotWidth)
                                             .requiredHeight(slotHeight)
                                             .background(
-                                                if (isSelected) Color(0xFF2563EB) else Color.Transparent,
+                                                if (isSelected) highlightColor else Color.Transparent,
                                                 RoundedCornerShape(KeyboardDimens.keyCornerRadius - KeyboardDimens.keyGap)
                                             ),
                                         contentAlignment = Alignment.Center
@@ -886,7 +889,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
 
                                         Text(
                                             text = sec.bottom,
-                                            color = if (isSelected) Color.White else unselectedPopupTextColor,
+                                            color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
                                             fontSize = bottomFontSize,
                                             fontWeight = FontWeight.SemiBold,
                                             fontFamily = FontFamily.Monospace,

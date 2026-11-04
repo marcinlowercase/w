@@ -1,6 +1,7 @@
 package marcinlowercase.w.viewmodel
 
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import marcinlowercase.w.model.DefaultLayout
 import marcinlowercase.w.model.KeyDefinition
@@ -13,6 +14,7 @@ class KeyboardViewModel : ViewModel() {
     val layoutConfig = mutableStateOf(DefaultLayout.create())
     val shiftState = mutableStateOf(ShiftState.OFF)
     val bottomChinPaddingDp = mutableStateOf(32)
+    val highlightColor = mutableStateOf(Color(0xFF001FFF))
     val ctrlArmed = mutableStateOf(false)
     val altArmed = mutableStateOf(false)
     val ctrlShiftArmed = mutableStateOf(false)
