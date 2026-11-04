@@ -201,6 +201,7 @@ fun RibbonRow(keys: List<KeyDefinition>) {
                     .pointerInput(key.id) {
                         detectTapGestures {
                             view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            viewModel.playKeySound(KeyType.MODIFIER)
                             viewModel.pressKey(key)
                         }
                     },
@@ -299,10 +300,10 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
             .pointerInput(key.id) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                    isPressedDown = true
-
                     val currentKey = viewModel.getKey(key.id)
+                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    viewModel.playKeySound(currentKey.type)
+                    isPressedDown = true
 
                     if (currentKey.type == KeyType.BACKSPACE) {
                         viewModel.pressKey(currentKey)
@@ -318,6 +319,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                     val deleted = viewModel.pressKey(viewModel.getKey(key.id))
                                     if (deleted) {
                                         view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                        viewModel.playKeySound(KeyType.BACKSPACE)
                                     }
                                 }
                             }
@@ -937,6 +939,7 @@ fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
                     view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                    viewModel.playKeySound(KeyType.SPACE)
                     isPressedDown = true
 
                     var accumulatedDrag = 0f

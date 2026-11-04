@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
+import android.media.AudioManager
 import android.view.KeyEvent
 import android.view.View
 import android.view.Window
@@ -87,6 +88,13 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         serviceScope.launch {
             preferences.highlightColorLong.collect { colorVal ->
                 viewModel.highlightColor.value = Color(colorVal)
+            }
+        }
+        viewModel.audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+        serviceScope.launch {
+            preferences.soundEnabled.collect { enabled ->
+                viewModel.soundEnabled.value = enabled
             }
         }
         serviceScope.launch {

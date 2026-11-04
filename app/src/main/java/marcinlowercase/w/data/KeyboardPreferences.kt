@@ -18,6 +18,7 @@ class KeyboardPreferences(private val context: Context) {
         val KEY_HIGHLIGHT_COLOR = androidx.datastore.preferences.core.longPreferencesKey("highlight_color_long")
         val KEY_CUSTOM_FONT_PATH = stringPreferencesKey("custom_font_path")
         val KEY_CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
+        val KEY_SOUND_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("sound_on_keypress")
     }
 
     val bottomPaddingDp: Flow<Int> = context.dataStore.data.map { preferences ->
@@ -59,6 +60,17 @@ class KeyboardPreferences(private val context: Context) {
             }
         }
     }
+
+    val soundEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_SOUND_ENABLED] ?: true
+    }
+
+    suspend fun setSoundEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_SOUND_ENABLED] = enabled
+        }
+    }
+
 
     val layoutConfigJson: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[KEY_LAYOUT_CONFIG_JSON]

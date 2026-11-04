@@ -1,5 +1,6 @@
 package marcinlowercase.w.viewmodel
 
+import android.media.AudioManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
@@ -22,7 +23,21 @@ class KeyboardViewModel : ViewModel() {
     val ctrlShiftArmed = mutableStateOf(false)
     val altShiftArmed = mutableStateOf(false)
     val activePopupKeyId = mutableStateOf<String?>(null)
+    val soundEnabled = mutableStateOf(true)
+    var audioManager: AudioManager? = null
     private var lastShiftPressTime = 0L
+
+    fun playKeySound(type: KeyType) {
+        if (!soundEnabled.value) return
+        val am = audioManager ?: return
+        val effect = when (type) {
+            KeyType.SPACE -> AudioManager.FX_KEYPRESS_SPACEBAR
+            KeyType.BACKSPACE -> AudioManager.FX_KEYPRESS_DELETE
+            KeyType.ENTER -> AudioManager.FX_KEYPRESS_RETURN
+            else -> AudioManager.FX_KEYPRESS_STANDARD
+        }
+        am.playSoundEffect(effect)
+    }
 
     var onKeyPressHandler: ((KeyDefinition, Int) -> Boolean)? = null
     var onTextCommitHandler: ((String) -> Unit)? = null

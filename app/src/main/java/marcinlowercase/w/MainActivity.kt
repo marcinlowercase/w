@@ -101,6 +101,7 @@ fun SettingsScreen(
     val bottomPaddingState = preferences.bottomPaddingDp.collectAsState(initial = 24)
     val highlightColorState = preferences.highlightColorLong.collectAsState(initial = 0xFF001FFFL)
     val customFontNameState = preferences.customFontName.collectAsState(initial = null)
+    val soundEnabledState = preferences.soundEnabled.collectAsState(initial = true)
     var testInputText by remember { mutableStateOf("") }
 
     val fontPickerLauncher = rememberLauncherForActivityResult(
@@ -131,6 +132,40 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         StatusCard(context)
+
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Sound on Keypress",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Play native system audio clicks when tapping keys.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = soundEnabledState.value,
+                    onCheckedChange = { isChecked ->
+                        coroutineScope.launch {
+                            preferences.setSoundEnabled(isChecked)
+                        }
+                    }
+                )
+            }
+        }
 
         ColorPickerCard(
             currentColorLong = highlightColorState.value,
