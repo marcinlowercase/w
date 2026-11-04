@@ -296,8 +296,10 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                     view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                     isPressedDown = true
 
-                    if (key.type == KeyType.BACKSPACE) {
-                        viewModel.pressKey(key)
+                    val currentKey = viewModel.getKey(key.id)
+
+                    if (currentKey.type == KeyType.BACKSPACE) {
+                        viewModel.pressKey(currentKey)
 
                         val releasedEarly = withTimeoutOrNull(350L) {
                             waitForUpOrCancellation()
@@ -307,7 +309,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                             val repeatJob = coroutineScope.launch {
                                 while (isActive) {
                                     delay(50L.milliseconds)
-                                    val deleted = viewModel.pressKey(key)
+                                    val deleted = viewModel.pressKey(viewModel.getKey(key.id))
                                     if (deleted) {
                                         view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                                     }
@@ -334,13 +336,14 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
 
                     if (fingerReleasedEarly) {
                         isPressedDown = false
-                        viewModel.pressKey(key)
+                        viewModel.pressKey(viewModel.getKey(key.id))
                     } else {
                         isPressedDown = false
-                        if (key.type == KeyType.SHIFT) {
+                        val activeKey = viewModel.getKey(key.id)
+                        if (activeKey.type == KeyType.SHIFT) {
                             view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                             shiftHoldAction = ShiftHoldAction.TAB
-                            viewModel.activePopupKeyId.value = key.id
+                            viewModel.activePopupKeyId.value = activeKey.id
                             showPopup = true
 
                             val startY = down.position.y
@@ -373,13 +376,13 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                             }
                         } else {
                             val sec = when {
-                                key.secondaries?.hasOptions() == true -> key.secondaries
-                                key.popups.isNotEmpty() -> when (key.popups.size) {
-                                    1 -> SecondaryBindings(center = key.popups[0])
-                                    2 -> SecondaryBindings(center = key.popups[0], right = key.popups[1])
-                                    3 -> SecondaryBindings(center = key.popups[0], top = key.popups[1], right = key.popups[2])
-                                    4 -> SecondaryBindings(center = key.popups[0], top = key.popups[1], right = key.popups[2], bottom = key.popups[3])
-                                    else -> SecondaryBindings(center = key.popups[0], top = key.popups[1], right = key.popups[2], bottom = key.popups[3], left = key.popups[4])
+                                activeKey.secondaries?.hasOptions() == true -> activeKey.secondaries
+                                activeKey.popups.isNotEmpty() -> when (activeKey.popups.size) {
+                                    1 -> SecondaryBindings(center = activeKey.popups[0])
+                                    2 -> SecondaryBindings(center = activeKey.popups[0], right = activeKey.popups[1])
+                                    3 -> SecondaryBindings(center = activeKey.popups[0], top = activeKey.popups[1], right = activeKey.popups[2])
+                                    4 -> SecondaryBindings(center = activeKey.popups[0], top = activeKey.popups[1], right = activeKey.popups[2], bottom = activeKey.popups[3])
+                                    else -> SecondaryBindings(center = activeKey.popups[0], top = activeKey.popups[1], right = activeKey.popups[2], bottom = activeKey.popups[3], left = activeKey.popups[4])
                                 }
                                 else -> null
                             }
@@ -387,7 +390,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                             if (sec?.hasOptions() == true) {
                                 view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                                 selectedDirection = PopupDirection.CENTER
-                                viewModel.activePopupKeyId.value = key.id
+                                viewModel.activePopupKeyId.value = activeKey.id
                                 showPopup = true
 
                                 val startX = down.position.x
@@ -403,7 +406,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                         val absX = kotlin.math.abs(deltaX)
                                         val absY = kotlin.math.abs(deltaY)
 
-                                        val isRightEdgeKey = key.id in listOf("0", "p", "l")
+                                        val isRightEdgeKey = activeKey.id in listOf("0", "p", "l")
                                         val canSwipeRight = sec.right != null && !isRightEdgeKey
 
                                         val newDir = when {
@@ -418,7 +421,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                         }
                                     } else {
                                         viewModel.activePopupKeyId.value = null
-                                        viewModel.commitSecondary(liveKey.id, selectedDirection)
+                                        viewModel.commitSecondary(activeKey.id, selectedDirection)
                                         showPopup = false
                                         break
                                     }
