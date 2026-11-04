@@ -923,7 +923,7 @@ fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
 
     val extraBottomPadding = if (isBottomRow) viewModel.bottomChinPaddingDp.value.dp else 0.dp
     val spaceBg = when {
-        isPressedDown -> if (isDark) Color(0xFF323236) else Color(0xFFD1D5DB)
+        isPressedDown -> if (isDark) Color.Black else Color.White
         isDark -> Color(0xFF1C1C1E)
         else -> Color(0xFFEEEEEE)
     }
