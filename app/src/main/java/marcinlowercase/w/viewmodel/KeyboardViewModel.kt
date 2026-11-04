@@ -162,7 +162,7 @@ class KeyboardViewModel : ViewModel() {
             altArmed.value = false
             altShiftArmed.value = false
         }
-        if ((key.type == KeyType.CHARACTER || key.type == KeyType.BACKSPACE || key.type == KeyType.SPACE) && shiftState.value == ShiftState.SHIFTED) {
+        if ((key.type == KeyType.CHARACTER || key.type == KeyType.BACKSPACE || key.type == KeyType.SPACE || key.id == "tab" || key.id == "esc") && shiftState.value == ShiftState.SHIFTED) {
             shiftState.value = ShiftState.OFF
         }
 

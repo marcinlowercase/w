@@ -373,10 +373,14 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                     }
                                 } else {
                                     viewModel.activePopupKeyId.value = null
+                                    val wasShifted = viewModel.shiftState.value == marcinlowercase.w.model.ShiftState.SHIFTED
                                     when (shiftHoldAction) {
                                         ShiftHoldAction.TAB,
                                         ShiftHoldAction.NONE -> viewModel.pressKey(KeyDefinition("tab", "TAB", type = KeyType.MODIFIER))
                                         ShiftHoldAction.ESC -> viewModel.pressKey(KeyDefinition("esc", "ESC", type = KeyType.MODIFIER))
+                                    }
+                                    if (wasShifted) {
+                                        viewModel.shiftState.value = marcinlowercase.w.model.ShiftState.OFF
                                     }
                                     showPopup = false
                                     break
