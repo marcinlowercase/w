@@ -124,6 +124,33 @@ class KeyboardViewModel : ViewModel() {
         }
     }
 
+    private fun isMacroCommand(text: String): Boolean {
+        val upper = text.uppercase().trim()
+        return upper.contains("CTRL+") || upper.contains("ALT+") || upper.contains("SHIFT+")
+    }
+
+    private fun executeMacro(command: String) {
+        val parts = command.uppercase().split("+").map { it.trim() }
+        var meta = 0
+        var keyChar = ""
+
+        parts.forEach { part ->
+            when (part) {
+                "CTRL" -> meta = meta or android.view.KeyEvent.META_CTRL_ON or android.view.KeyEvent.META_CTRL_LEFT_ON
+                "ALT" -> meta = meta or android.view.KeyEvent.META_ALT_ON or android.view.KeyEvent.META_ALT_LEFT_ON
+                "SHIFT" -> meta = meta or android.view.KeyEvent.META_SHIFT_ON or android.view.KeyEvent.META_SHIFT_LEFT_ON
+                else -> keyChar = part
+            }
+        }
+
+        val macroKey = KeyDefinition(
+            id = "macro_${keyChar.lowercase()}",
+            primaryChar = keyChar,
+            type = KeyType.CHARACTER
+        )
+        onKeyPressHandler?.invoke(macroKey, meta)
+    }
+
     fun pressKey(key: KeyDefinition): Boolean {
         if (key.type == KeyType.SHIFT) {
             onShiftPressed()
@@ -137,6 +164,14 @@ class KeyboardViewModel : ViewModel() {
 
         if (key.id == "alt") {
             onAltPressed()
+            return true
+        }
+
+        if (isMacroCommand(key.primaryChar)) {
+            executeMacro(key.primaryChar)
+            if (shiftState.value == ShiftState.SHIFTED) {
+                shiftState.value = ShiftState.OFF
+            }
             return true
         }
 
@@ -170,7 +205,12 @@ class KeyboardViewModel : ViewModel() {
     }
 
     fun selectPopup(symbol: String) {
-        onTextCommitHandler?.invoke(symbol)
+        val payload = if (symbol.contains(":")) symbol.substringAfter(":") else symbol
+        if (isMacroCommand(payload)) {
+            executeMacro(payload)
+        } else {
+            onTextCommitHandler?.invoke(payload)
+        }
         ctrlArmed.value = false
         ctrlShiftArmed.value = false
         altArmed.value = false

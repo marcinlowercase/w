@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -582,13 +583,23 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                             },
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(
-                                            text = key.primaryChar,
-                                            color = textColor,
-                                            fontSize = 14.sp,
-                                            fontFamily = FontFamily.Monospace,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
+                                        val previewText = key.displayLabel ?: key.primaryChar
+                                        if (marcinlowercase.w.ui.isSvgOrPath(previewText)) {
+                                            marcinlowercase.w.ui.SvgPathIcon(
+                                                raw = previewText,
+                                                tint = textColor,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        } else {
+                                            Text(
+                                                text = previewText,
+                                                color = textColor,
+                                                fontSize = 14.sp,
+                                                fontFamily = FontFamily.Monospace,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -622,7 +633,18 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                             onValueChange = { newChar ->
                                 updateSelectedKey { it.copy(primaryChar = newChar) }
                             },
-                            label = { Text("Primary Key") },
+                            label = { Text("Primary Key / Macro Payload") },
+                            placeholder = { Text("e.g. 'c' or 'Ctrl+C' or code snippet") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        OutlinedTextField(
+                            value = selectedKey.displayLabel ?: "",
+                            onValueChange = { newLabel ->
+                                updateSelectedKey { it.copy(displayLabel = newLabel.ifEmpty { null }) }
+                            },
+                            label = { Text("Keycap Display Label (Optional)") },
+                            placeholder = { Text("e.g. 'COPY' for Ctrl+C") },
                             modifier = Modifier.fillMaxWidth()
                         )
 

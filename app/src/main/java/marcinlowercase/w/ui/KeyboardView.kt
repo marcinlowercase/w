@@ -1,10 +1,12 @@
 package marcinlowercase.w.ui
 
+import androidx.compose.ui.graphics.vector.PathParser
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -44,8 +46,11 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
@@ -85,6 +90,73 @@ object KeyboardDimens {
 
 val LocalKeyboardViewModel = staticCompositionLocalOf<marcinlowercase.w.viewmodel.KeyboardViewModel> {
     error("No KeyboardViewModel provided")
+}
+
+fun isSvgOrPath(text: String?): Boolean {
+    if (text.isNullOrBlank()) return false
+    val trimmed = text.trim()
+    return trimmed.startsWith("<svg", ignoreCase = true) ||
+        trimmed.startsWith("<path", ignoreCase = true) ||
+        trimmed.contains(" d=\"", ignoreCase = true) ||
+        trimmed.contains(" d='", ignoreCase = true) ||
+        (trimmed.length > 2 && (trimmed.startsWith("M") || trimmed.startsWith("m")) && trimmed.any { it.isDigit() })
+}
+
+fun extractSvgPathData(raw: String): Pair<String, Float> {
+    val trimmed = raw.trim()
+    var viewport = 24f
+
+    val viewBoxRegex = Regex("""viewBox=["']\s*[\d.]+\s+[\d.]+\s+([\d.]+)\s+[\d.]+["']""")
+    val viewBoxMatch = viewBoxRegex.find(trimmed)
+    if (viewBoxMatch != null) {
+        val vp = viewBoxMatch.groupValues.getOrNull(1)?.toFloatOrNull()
+        if (vp != null && vp > 0f) {
+            viewport = vp
+        }
+    }
+
+    val dRegex = Regex("""d=["']([^"']+)["']""")
+    val dMatch = dRegex.find(trimmed)
+    val pathData = if (dMatch != null) {
+        dMatch.groupValues[1]
+    } else if (trimmed.startsWith("M") || trimmed.startsWith("m")) {
+        trimmed
+    } else {
+        ""
+    }
+    return Pair(pathData, viewport)
+}
+
+@Composable
+fun SvgPathIcon(
+    raw: String,
+    tint: Color,
+    modifier: Modifier = Modifier.size(20.dp)
+) {
+    val parsed = remember(raw) {
+        val (pathData, viewport) = extractSvgPathData(raw)
+        try {
+            val parser = PathParser()
+            parser.parsePathString(pathData)
+            Pair(parser.toPath(), viewport)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    if (parsed != null) {
+        val (path, viewport) = parsed
+        Canvas(modifier = modifier) {
+            val scaleFactor = size.minDimension / viewport
+            val offsetX = (size.width - (viewport * scaleFactor)) / 2f
+            val offsetY = (size.height - (viewport * scaleFactor)) / 2f
+            translate(left = offsetX, top = offsetY) {
+                scale(scaleX = scaleFactor, scaleY = scaleFactor, pivot = Offset.Zero) {
+                    drawPath(path = path, color = tint)
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -524,6 +596,8 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                 else -> null
             }
 
+            val visualLabel = key.displayLabel ?: displayedChar
+
             if (iconResId != null) {
                 Icon(
                     painter = painterResource(id = iconResId),
@@ -533,8 +607,15 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                         .size(22.dp)
                         .align(Alignment.Center)
                 )
+            } else if (isSvgOrPath(visualLabel)) {
+                SvgPathIcon(
+                    raw = visualLabel,
+                    tint = keyTextColor,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .align(Alignment.Center)
+                )
             } else {
-                val visualLabel = key.displayLabel ?: displayedChar
                 val labelFontSize = if (key.type == KeyType.MODIFIER) {
                     13.sp
                 } else {
@@ -597,15 +678,23 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                     else -> 13.sp
                 }
 
-                Text(
-                    text = previewLabel,
-                    fontSize = previewFontSize,
-                    fontWeight = FontWeight.SemiBold,
-                    fontFamily = activeFont,
-                    color = onHighlightColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (isSvgOrPath(previewLabel)) {
+                    SvgPathIcon(
+                        raw = previewLabel,
+                        tint = onHighlightColor,
+                        modifier = Modifier.size(26.dp)
+                    )
+                } else {
+                    Text(
+                        text = previewLabel,
+                        fontSize = previewFontSize,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = activeFont,
+                        color = onHighlightColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
 
@@ -752,22 +841,31 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        val topFontSize = when (sec.top.length) {
+                                        val topDisplay = if (sec.top.contains(":")) sec.top.substringBefore(":") else sec.top
+                                        val topFontSize = when (topDisplay.length) {
                                             0, 1 -> 22.sp
                                             2 -> 16.sp
                                             3 -> 13.sp
                                             else -> 11.sp
                                         }
 
-                                        Text(
-                                            text = sec.top,
-                                            color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
-                                            fontSize = topFontSize,
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontFamily = activeFont,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                        if (isSvgOrPath(topDisplay)) {
+                                            SvgPathIcon(
+                                                raw = topDisplay,
+                                                tint = if (isSelected) onHighlightColor else unselectedPopupTextColor,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        } else {
+                                            Text(
+                                                text = topDisplay,
+                                                color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
+                                                fontSize = topFontSize,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontFamily = activeFont,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                     }
 
                                     if (hasRight) Spacer(modifier = Modifier.requiredWidth(slotWidth).requiredHeight(slotHeight))
@@ -790,22 +888,31 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        val leftFontSize = when (sec.left.length) {
+                                        val leftDisplay = if (sec.left.contains(":")) sec.left.substringBefore(":") else sec.left
+                                        val leftFontSize = when (leftDisplay.length) {
                                             0, 1 -> 22.sp
                                             2 -> 16.sp
                                             3 -> 13.sp
                                             else -> 11.sp
                                         }
 
-                                        Text(
-                                            text = sec.left,
-                                            color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
-                                            fontSize = leftFontSize,
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontFamily = activeFont,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                        if (isSvgOrPath(leftDisplay)) {
+                                            SvgPathIcon(
+                                                raw = leftDisplay,
+                                                tint = if (isSelected) onHighlightColor else unselectedPopupTextColor,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        } else {
+                                            Text(
+                                                text = leftDisplay,
+                                                color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
+                                                fontSize = leftFontSize,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontFamily = activeFont,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                     }
                                 }
 
@@ -820,7 +927,8 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    val centerText = sec.center ?: ""
+                                    val rawCenter = sec.center ?: ""
+                                    val centerText = if (rawCenter.contains(":")) rawCenter.substringBefore(":") else rawCenter
                                     val centerFontSize = when (centerText.length) {
                                         0, 1 -> 22.sp
                                         2 -> 16.sp
@@ -828,15 +936,23 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                         else -> 11.sp
                                     }
 
-                                    Text(
-                                        text = centerText,
-                                        color = if (isCenterSelected) onHighlightColor else unselectedPopupTextColor,
-                                        fontSize = centerFontSize,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontFamily = activeFont,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                    if (isSvgOrPath(centerText)) {
+                                        SvgPathIcon(
+                                            raw = centerText,
+                                            tint = if (isCenterSelected) onHighlightColor else unselectedPopupTextColor,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    } else {
+                                        Text(
+                                            text = centerText,
+                                            color = if (isCenterSelected) onHighlightColor else unselectedPopupTextColor,
+                                            fontSize = centerFontSize,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontFamily = activeFont,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
 
                                 if (hasRight) {
@@ -851,22 +967,31 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        val rightFontSize = when (sec.right.length) {
+                                        val rightDisplay = if (sec.right.contains(":")) sec.right.substringBefore(":") else sec.right
+                                        val rightFontSize = when (rightDisplay.length) {
                                             0, 1 -> 22.sp
                                             2 -> 16.sp
                                             3 -> 13.sp
                                             else -> 11.sp
                                         }
 
-                                        Text(
-                                            text = sec.right,
-                                            color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
-                                            fontSize = rightFontSize,
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontFamily = activeFont,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                        if (isSvgOrPath(rightDisplay)) {
+                                            SvgPathIcon(
+                                                raw = rightDisplay,
+                                                tint = if (isSelected) onHighlightColor else unselectedPopupTextColor,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        } else {
+                                            Text(
+                                                text = rightDisplay,
+                                                color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
+                                                fontSize = rightFontSize,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontFamily = activeFont,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -889,22 +1014,31 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        val bottomFontSize = when (sec.bottom.length) {
+                                        val bottomDisplay = if (sec.bottom.contains(":")) sec.bottom.substringBefore(":") else sec.bottom
+                                        val bottomFontSize = when (bottomDisplay.length) {
                                             0, 1 -> 22.sp
                                             2 -> 16.sp
                                             3 -> 13.sp
                                             else -> 11.sp
                                         }
 
-                                        Text(
-                                            text = sec.bottom,
-                                            color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
-                                            fontSize = bottomFontSize,
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontFamily = activeFont,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                        if (isSvgOrPath(bottomDisplay)) {
+                                            SvgPathIcon(
+                                                raw = bottomDisplay,
+                                                tint = if (isSelected) onHighlightColor else unselectedPopupTextColor,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        } else {
+                                            Text(
+                                                text = bottomDisplay,
+                                                color = if (isSelected) onHighlightColor else unselectedPopupTextColor,
+                                                fontSize = bottomFontSize,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontFamily = activeFont,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                     }
 
                                     if (hasRight) Spacer(modifier = Modifier.requiredWidth(slotWidth).requiredHeight(slotHeight))

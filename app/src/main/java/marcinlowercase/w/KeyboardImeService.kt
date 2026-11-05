@@ -315,6 +315,12 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
                     }
                     return true
                 }
+                "z" -> {
+                    val now = android.os.SystemClock.uptimeMillis()
+                    ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_Z, 0, metaState))
+                    ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_Z, 0, metaState))
+                    return true
+                }
             }
         }
 
@@ -356,13 +362,13 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
     }
 
     private fun resolveKeyCode(key: KeyDefinition): Int {
-        if (key.type == KeyType.ENTER) return KeyEvent.KEYCODE_ENTER
-        if (key.type == KeyType.SPACE) return KeyEvent.KEYCODE_SPACE
-        if (key.type == KeyType.BACKSPACE) return KeyEvent.KEYCODE_DEL
-        if (key.id == "tab") return KeyEvent.KEYCODE_TAB
-        if (key.id == "esc") return KeyEvent.KEYCODE_ESCAPE
+        if (key.type == KeyType.ENTER || key.primaryChar.equals("ENTER", ignoreCase = true)) return KeyEvent.KEYCODE_ENTER
+        if (key.type == KeyType.SPACE || key.primaryChar.equals("SPACE", ignoreCase = true)) return KeyEvent.KEYCODE_SPACE
+        if (key.type == KeyType.BACKSPACE || key.primaryChar.equals("BACKSPACE", ignoreCase = true)) return KeyEvent.KEYCODE_DEL
+        if (key.id == "tab" || key.primaryChar.equals("TAB", ignoreCase = true)) return KeyEvent.KEYCODE_TAB
+        if (key.id == "esc" || key.primaryChar.equals("ESC", ignoreCase = true)) return KeyEvent.KEYCODE_ESCAPE
 
-        val ch = key.primaryChar.firstOrNull() ?: return KeyEvent.KEYCODE_UNKNOWN
+        val ch = key.primaryChar.trim().firstOrNull() ?: return KeyEvent.KEYCODE_UNKNOWN
         return when {
             ch in 'a'..'z' -> KeyEvent.KEYCODE_A + (ch - 'a')
             ch in 'A'..'Z' -> KeyEvent.KEYCODE_A + (ch - 'A')
