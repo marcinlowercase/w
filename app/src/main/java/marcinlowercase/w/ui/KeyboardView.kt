@@ -573,16 +573,28 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                 .clip(RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                 .background(keyBackground)
         ) {
-            if (key.hint != null && !isSvgOrPath(key.hint)) {
-                Text(
-                    text = key.hint,
-                    color = hintColor,
-                    fontSize = 11.sp,
-                    fontFamily = activeFont,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 2.dp, end = 4.dp)
-                )
+            val effectiveHint = liveKey.secondaries?.getDisplay(PopupDirection.CENTER) ?: liveKey.hint
+            if (effectiveHint != null) {
+                if (isSvgOrPath(effectiveHint)) {
+                    SvgPathIcon(
+                        raw = effectiveHint,
+                        tint = hintColor,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 3.dp, end = 4.dp)
+                            .size(11.dp)
+                    )
+                } else {
+                    Text(
+                        text = effectiveHint,
+                        color = hintColor,
+                        fontSize = 11.sp,
+                        fontFamily = activeFont,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 2.dp, end = 4.dp)
+                    )
+                }
             }
 
             val iconResId = when (key.type) {

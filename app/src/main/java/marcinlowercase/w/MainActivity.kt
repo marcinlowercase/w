@@ -662,13 +662,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                             onContentChange = { newContent ->
                                 val cleaned = newContent.ifEmpty { null }
                                 val displayCleaned = sec.centerDisplay?.ifEmpty { null }
-                                val hintText = if (displayCleaned != null && !marcinlowercase.w.ui.isSvgOrPath(displayCleaned)) {
-                                    displayCleaned
-                                } else if (cleaned != null && !marcinlowercase.w.ui.isSvgOrPath(cleaned)) {
-                                    cleaned
-                                } else {
-                                    null
-                                }
+                                val hintText = displayCleaned ?: cleaned
                                 updateSelectedKey {
                                     it.copy(
                                         hint = hintText,
@@ -680,13 +674,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                             onDisplayChange = { newDisplay ->
                                 val cleanedDisplay = newDisplay.ifEmpty { null }
                                 val centerContent = sec.center ?: selectedKey.hint
-                                val hintText = if (cleanedDisplay != null && !marcinlowercase.w.ui.isSvgOrPath(cleanedDisplay)) {
-                                    cleanedDisplay
-                                } else if (centerContent != null && !marcinlowercase.w.ui.isSvgOrPath(centerContent)) {
-                                    centerContent
-                                } else {
-                                    null
-                                }
+                                val hintText = cleanedDisplay ?: centerContent
                                 updateSelectedKey {
                                     it.copy(
                                         hint = hintText,
