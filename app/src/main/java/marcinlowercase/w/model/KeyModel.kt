@@ -22,7 +22,12 @@ data class SecondaryBindings(
     val top: String? = null,
     val right: String? = null,
     val bottom: String? = null,
-    val left: String? = null
+    val left: String? = null,
+    val centerDisplay: String? = null,
+    val topDisplay: String? = null,
+    val rightDisplay: String? = null,
+    val bottomDisplay: String? = null,
+    val leftDisplay: String? = null
 ) {
     fun get(direction: PopupDirection): String? = when (direction) {
         PopupDirection.CENTER -> center
@@ -30,6 +35,14 @@ data class SecondaryBindings(
         PopupDirection.RIGHT -> right
         PopupDirection.BOTTOM -> bottom
         PopupDirection.LEFT -> left
+    }
+
+    fun getDisplay(direction: PopupDirection): String? = when (direction) {
+        PopupDirection.CENTER -> centerDisplay?.ifEmpty { null } ?: center
+        PopupDirection.TOP -> topDisplay?.ifEmpty { null } ?: top
+        PopupDirection.RIGHT -> rightDisplay?.ifEmpty { null } ?: right
+        PopupDirection.BOTTOM -> bottomDisplay?.ifEmpty { null } ?: bottom
+        PopupDirection.LEFT -> leftDisplay?.ifEmpty { null } ?: left
     }
 
     fun hasOptions(): Boolean = center != null || top != null || right != null || bottom != null || left != null

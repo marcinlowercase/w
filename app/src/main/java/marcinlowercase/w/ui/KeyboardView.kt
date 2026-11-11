@@ -573,7 +573,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                 .clip(RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                 .background(keyBackground)
         ) {
-            if (key.hint != null) {
+            if (key.hint != null && !isSvgOrPath(key.hint)) {
                 Text(
                     text = key.hint,
                     color = hintColor,
@@ -841,7 +841,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        val topDisplay = if (sec.top.contains(":")) sec.top.substringBefore(":") else sec.top
+                                        val topDisplay = sec.getDisplay(PopupDirection.TOP) ?: ""
                                         val topFontSize = when (topDisplay.length) {
                                             0, 1 -> 22.sp
                                             2 -> 16.sp
@@ -888,7 +888,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        val leftDisplay = if (sec.left.contains(":")) sec.left.substringBefore(":") else sec.left
+                                        val leftDisplay = sec.getDisplay(PopupDirection.LEFT) ?: ""
                                         val leftFontSize = when (leftDisplay.length) {
                                             0, 1 -> 22.sp
                                             2 -> 16.sp
@@ -927,24 +927,23 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    val rawCenter = sec.center ?: ""
-                                    val centerText = if (rawCenter.contains(":")) rawCenter.substringBefore(":") else rawCenter
-                                    val centerFontSize = when (centerText.length) {
+                                    val centerDisplay = sec.getDisplay(PopupDirection.CENTER) ?: ""
+                                    val centerFontSize = when (centerDisplay.length) {
                                         0, 1 -> 22.sp
                                         2 -> 16.sp
                                         3 -> 13.sp
                                         else -> 11.sp
                                     }
 
-                                    if (isSvgOrPath(centerText)) {
+                                    if (isSvgOrPath(centerDisplay)) {
                                         SvgPathIcon(
-                                            raw = centerText,
+                                            raw = centerDisplay,
                                             tint = if (isCenterSelected) onHighlightColor else unselectedPopupTextColor,
                                             modifier = Modifier.size(22.dp)
                                         )
                                     } else {
                                         Text(
-                                            text = centerText,
+                                            text = centerDisplay,
                                             color = if (isCenterSelected) onHighlightColor else unselectedPopupTextColor,
                                             fontSize = centerFontSize,
                                             fontWeight = FontWeight.SemiBold,
@@ -967,7 +966,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        val rightDisplay = if (sec.right.contains(":")) sec.right.substringBefore(":") else sec.right
+                                        val rightDisplay = sec.getDisplay(PopupDirection.RIGHT) ?: ""
                                         val rightFontSize = when (rightDisplay.length) {
                                             0, 1 -> 22.sp
                                             2 -> 16.sp
@@ -1014,7 +1013,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        val bottomDisplay = if (sec.bottom.contains(":")) sec.bottom.substringBefore(":") else sec.bottom
+                                        val bottomDisplay = sec.getDisplay(PopupDirection.BOTTOM) ?: ""
                                         val bottomFontSize = when (bottomDisplay.length) {
                                             0, 1 -> 22.sp
                                             2 -> 16.sp

@@ -656,85 +656,162 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                             fontWeight = FontWeight.SemiBold
                         )
 
-                        val currentCenter = sec.center ?: selectedKey.hint ?: ""
-
-                        OutlinedTextField(
-                            value = currentCenter,
-                            onValueChange = { newCenter ->
-                                val cleaned = newCenter.ifEmpty { null }
+                        SecondaryDirectionEditor(
+                            title = "Center (Default Hold / Corner Hint)",
+                            contentValue = sec.center ?: selectedKey.hint ?: "",
+                            onContentChange = { newContent ->
+                                val cleaned = newContent.ifEmpty { null }
+                                val displayCleaned = sec.centerDisplay?.ifEmpty { null }
+                                val hintText = if (displayCleaned != null && !marcinlowercase.w.ui.isSvgOrPath(displayCleaned)) {
+                                    displayCleaned
+                                } else if (cleaned != null && !marcinlowercase.w.ui.isSvgOrPath(cleaned)) {
+                                    cleaned
+                                } else {
+                                    null
+                                }
                                 updateSelectedKey {
                                     it.copy(
-                                        hint = cleaned,
+                                        hint = hintText,
                                         secondaries = sec.copy(center = cleaned)
                                     )
                                 }
                             },
-                            label = { Text("Center (Default Hold / Corner Hint)") },
-                            modifier = Modifier.fillMaxWidth()
+                            displayValue = sec.centerDisplay ?: "",
+                            onDisplayChange = { newDisplay ->
+                                val cleanedDisplay = newDisplay.ifEmpty { null }
+                                val centerContent = sec.center ?: selectedKey.hint
+                                val hintText = if (cleanedDisplay != null && !marcinlowercase.w.ui.isSvgOrPath(cleanedDisplay)) {
+                                    cleanedDisplay
+                                } else if (centerContent != null && !marcinlowercase.w.ui.isSvgOrPath(centerContent)) {
+                                    centerContent
+                                } else {
+                                    null
+                                }
+                                updateSelectedKey {
+                                    it.copy(
+                                        hint = hintText,
+                                        secondaries = sec.copy(centerDisplay = cleanedDisplay)
+                                    )
+                                }
+                            }
                         )
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = sec.top ?: "",
-                                onValueChange = { newTop ->
+                        SecondaryDirectionEditor(
+                            title = "Swipe Up",
+                            contentValue = sec.top ?: "",
+                            onContentChange = { newTop ->
+                                updateSelectedKey {
+                                    it.copy(secondaries = sec.copy(top = newTop.ifEmpty { null }))
+                                }
+                            },
+                            displayValue = sec.topDisplay ?: "",
+                            onDisplayChange = { newTopDisplay ->
+                                updateSelectedKey {
+                                    it.copy(secondaries = sec.copy(topDisplay = newTopDisplay.ifEmpty { null }))
+                                }
+                            }
+                        )
+
+                        SecondaryDirectionEditor(
+                            title = "Swipe Down",
+                            contentValue = sec.bottom ?: "",
+                            onContentChange = { newBottom ->
+                                updateSelectedKey {
+                                    it.copy(secondaries = sec.copy(bottom = newBottom.ifEmpty { null }))
+                                }
+                            },
+                            displayValue = sec.bottomDisplay ?: "",
+                            onDisplayChange = { newBottomDisplay ->
+                                updateSelectedKey {
+                                    it.copy(secondaries = sec.copy(bottomDisplay = newBottomDisplay.ifEmpty { null }))
+                                }
+                            }
+                        )
+
+                        SecondaryDirectionEditor(
+                            title = if (isFirstColumn) "Swipe Left (Edge disabled)" else "Swipe Left",
+                            contentValue = if (isFirstColumn) "" else (sec.left ?: ""),
+                            onContentChange = { newLeft ->
+                                if (!isFirstColumn) {
                                     updateSelectedKey {
-                                        it.copy(secondaries = sec.copy(top = newTop.ifEmpty { null }))
+                                        it.copy(secondaries = sec.copy(left = newLeft.ifEmpty { null }))
                                     }
-                                },
-                                label = { Text("Swipe Up") },
-                                modifier = Modifier.weight(1f)
-                            )
-
-                            OutlinedTextField(
-                                value = sec.bottom ?: "",
-                                onValueChange = { newBottom ->
+                                }
+                            },
+                            displayValue = if (isFirstColumn) "" else (sec.leftDisplay ?: ""),
+                            onDisplayChange = { newLeftDisplay ->
+                                if (!isFirstColumn) {
                                     updateSelectedKey {
-                                        it.copy(secondaries = sec.copy(bottom = newBottom.ifEmpty { null }))
+                                        it.copy(secondaries = sec.copy(leftDisplay = newLeftDisplay.ifEmpty { null }))
                                     }
-                                },
-                                label = { Text("Swipe Down") },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
+                                }
+                            },
+                            enabled = !isFirstColumn
+                        )
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = if (isFirstColumn) "" else (sec.left ?: ""),
-                                onValueChange = { newLeft ->
-                                    if (!isFirstColumn) {
-                                        updateSelectedKey {
-                                            it.copy(secondaries = sec.copy(left = newLeft.ifEmpty { null }))
-                                        }
+                        SecondaryDirectionEditor(
+                            title = if (isLastColumn) "Swipe Right (Edge disabled)" else "Swipe Right",
+                            contentValue = if (isLastColumn) "" else (sec.right ?: ""),
+                            onContentChange = { newRight ->
+                                if (!isLastColumn) {
+                                    updateSelectedKey {
+                                        it.copy(secondaries = sec.copy(right = newRight.ifEmpty { null }))
                                     }
-                                },
-                                enabled = !isFirstColumn,
-                                label = { Text(if (isFirstColumn) "Left (Edge disabled)" else "Swipe Left") },
-                                modifier = Modifier.weight(1f)
-                            )
-
-                            OutlinedTextField(
-                                value = if (isLastColumn) "" else (sec.right ?: ""),
-                                onValueChange = { newRight ->
-                                    if (!isLastColumn) {
-                                        updateSelectedKey {
-                                            it.copy(secondaries = sec.copy(right = newRight.ifEmpty { null }))
-                                        }
+                                }
+                            },
+                            displayValue = if (isLastColumn) "" else (sec.rightDisplay ?: ""),
+                            onDisplayChange = { newRightDisplay ->
+                                if (!isLastColumn) {
+                                    updateSelectedKey {
+                                        it.copy(secondaries = sec.copy(rightDisplay = newRightDisplay.ifEmpty { null }))
                                     }
-                                },
-                                enabled = !isLastColumn,
-                                label = { Text(if (isLastColumn) "Right (Edge disabled)" else "Swipe Right") },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
+                                }
+                            },
+                            enabled = !isLastColumn
+                        )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun SecondaryDirectionEditor(
+    title: String,
+    contentValue: String,
+    onContentChange: (String) -> Unit,
+    displayValue: String,
+    onDisplayChange: (String) -> Unit,
+    enabled: Boolean = true
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = title,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(
+                value = if (enabled) contentValue else "",
+                onValueChange = onContentChange,
+                enabled = enabled,
+                label = { Text("Payload / Macro") },
+                placeholder = { Text("Symbol or macro") },
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedTextField(
+                value = if (enabled) displayValue else "",
+                onValueChange = onDisplayChange,
+                enabled = enabled,
+                label = { Text("Display / SVG") },
+                placeholder = { Text("Label or SVG") },
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
