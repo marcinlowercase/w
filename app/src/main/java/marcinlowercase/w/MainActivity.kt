@@ -1,8 +1,11 @@
 package marcinlowercase.w
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.layout.PaddingValues
 import android.os.Bundle
 import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
@@ -493,6 +496,28 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
         }
     }
 
+    var pendingSvgTarget by remember { mutableStateOf<((String) -> Unit)?>(null) }
+    val clipboardManager = remember { context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
+
+    val svgPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    val svgText = stream.bufferedReader().readText()
+                    clipboardManager.setPrimaryClip(ClipData.newPlainText("svg_code", svgText))
+                    pendingSvgTarget?.invoke(svgText)
+                }
+            }
+        }
+    }
+
+    fun pickSvg(onLoaded: (String) -> Unit) {
+        pendingSvgTarget = onLoaded
+        svgPickerLauncher.launch(arrayOf("image/svg+xml", "image/*", "text/*", "*/*"))
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -644,7 +669,19 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                 updateSelectedKey { it.copy(displayLabel = newLabel.ifEmpty { null }) }
                             },
                             label = { Text("Keycap Display Label (Optional)") },
-                            placeholder = { Text("e.g. 'COPY' for Ctrl+C") },
+                            placeholder = { Text("e.g. 'COPY' or SVG") },
+                            trailingIcon = {
+                                TextButton(
+                                    onClick = {
+                                        pickSvg { svgText ->
+                                            updateSelectedKey { it.copy(displayLabel = svgText.ifEmpty { null }) }
+                                        }
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 6.dp)
+                                ) {
+                                    Text("Open SVG", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -681,6 +718,19 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                         secondaries = sec.copy(centerDisplay = cleanedDisplay)
                                     )
                                 }
+                            },
+                            onPickSvg = {
+                                pickSvg { svgText ->
+                                    val cleanedDisplay = svgText.ifEmpty { null }
+                                    val centerContent = sec.center ?: selectedKey.hint
+                                    val hintText = cleanedDisplay ?: centerContent
+                                    updateSelectedKey {
+                                        it.copy(
+                                            hint = hintText,
+                                            secondaries = sec.copy(centerDisplay = cleanedDisplay)
+                                        )
+                                    }
+                                }
                             }
                         )
 
@@ -697,6 +747,13 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                 updateSelectedKey {
                                     it.copy(secondaries = sec.copy(topDisplay = newTopDisplay.ifEmpty { null }))
                                 }
+                            },
+                            onPickSvg = {
+                                pickSvg { svgText ->
+                                    updateSelectedKey {
+                                        it.copy(secondaries = sec.copy(topDisplay = svgText.ifEmpty { null }))
+                                    }
+                                }
                             }
                         )
 
@@ -712,6 +769,13 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                             onDisplayChange = { newBottomDisplay ->
                                 updateSelectedKey {
                                     it.copy(secondaries = sec.copy(bottomDisplay = newBottomDisplay.ifEmpty { null }))
+                                }
+                            },
+                            onPickSvg = {
+                                pickSvg { svgText ->
+                                    updateSelectedKey {
+                                        it.copy(secondaries = sec.copy(bottomDisplay = svgText.ifEmpty { null }))
+                                    }
                                 }
                             }
                         )
@@ -731,6 +795,13 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                 if (!isFirstColumn) {
                                     updateSelectedKey {
                                         it.copy(secondaries = sec.copy(leftDisplay = newLeftDisplay.ifEmpty { null }))
+                                    }
+                                }
+                            },
+                            onPickSvg = {
+                                pickSvg { svgText ->
+                                    updateSelectedKey {
+                                        it.copy(secondaries = sec.copy(leftDisplay = svgText.ifEmpty { null }))
                                     }
                                 }
                             },
@@ -755,6 +826,13 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                     }
                                 }
                             },
+                            onPickSvg = {
+                                pickSvg { svgText ->
+                                    updateSelectedKey {
+                                        it.copy(secondaries = sec.copy(rightDisplay = svgText.ifEmpty { null }))
+                                    }
+                                }
+                            },
                             enabled = !isLastColumn
                         )
                     }
@@ -771,6 +849,7 @@ fun SecondaryDirectionEditor(
     onContentChange: (String) -> Unit,
     displayValue: String,
     onDisplayChange: (String) -> Unit,
+    onPickSvg: () -> Unit,
     enabled: Boolean = true
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -798,6 +877,16 @@ fun SecondaryDirectionEditor(
                 enabled = enabled,
                 label = { Text("Display / SVG") },
                 placeholder = { Text("Label or SVG") },
+                trailingIcon = if (enabled) {
+                    {
+                        TextButton(
+                            onClick = onPickSvg,
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            Text("Open SVG", fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                } else null,
                 modifier = Modifier.weight(1f)
             )
         }
