@@ -205,7 +205,7 @@ class KeyboardViewModel : ViewModel() {
     }
 
     fun selectPopup(symbol: String) {
-        val payload = if (symbol.contains(":")) symbol.substringAfter(":") else symbol
+        val payload = symbol
         if (isMacroCommand(payload)) {
             executeMacro(payload)
         } else {

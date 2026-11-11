@@ -1,77 +1,39 @@
 package marcinlowercase.w.model
 
+import android.content.Context
+import kotlinx.serialization.json.Json
+
 object DefaultLayout {
-    fun create(): KeyboardLayoutConfig {
-        val numberRow = KeyboardRow(
-            listOf(
-                KeyDefinition("1", "1", hint = "`", secondaries = SecondaryBindings(center = "`")),
-                KeyDefinition("2", "2", hint = "~", secondaries = SecondaryBindings(center = "~")),
-                KeyDefinition("3", "3"),
-                KeyDefinition("4", "4"),
-                KeyDefinition("5", "5"),
-                KeyDefinition("6", "6"),
-                KeyDefinition("7", "7"),
-                KeyDefinition("8", "8"),
-                KeyDefinition("9", "9"),
-                KeyDefinition("0", "0")
-            )
-        )
+    private var cachedConfig: KeyboardLayoutConfig? = null
+    private val json = Json { ignoreUnknownKeys = true }
 
-        val rowOne = KeyboardRow(
-            listOf(
-                KeyDefinition("q", "q", hint = "{", secondaries = SecondaryBindings(center = "{", right = "\\")),
-                KeyDefinition("w", "w", hint = "}", secondaries = SecondaryBindings(center = "}", right = "`")),
-                KeyDefinition("e", "e", hint = "[", secondaries = SecondaryBindings(center = "[")),
-                KeyDefinition("r", "r", hint = "]", secondaries = SecondaryBindings(center = "]")),
-                KeyDefinition("t", "t", hint = "<", secondaries = SecondaryBindings(center = "<")),
-                KeyDefinition("y", "y", hint = ">", secondaries = SecondaryBindings(center = ">")),
-                KeyDefinition("u", "u", hint = "=", secondaries = SecondaryBindings(center = "=")),
-                KeyDefinition("i", "i", hint = "+", secondaries = SecondaryBindings(center = "+")),
-                KeyDefinition("o", "o", hint = "-", secondaries = SecondaryBindings(center = "-", right = "_")),
-                KeyDefinition("p", "p", hint = "|", secondaries = SecondaryBindings(center = "|", top = "/", bottom = "\\", left = "="))
-            )
-        )
+    fun create(context: Context? = null): KeyboardLayoutConfig {
+        if (context != null) {
+            runCatching {
+                val jsonString = context.assets.open("default_layout.json").bufferedReader().use { it.readText() }
+                val parsed = json.decodeFromString<KeyboardLayoutConfig>(jsonString)
+                cachedConfig = enforceSystemKeys(parsed)
+            }
+        }
+        return cachedConfig ?: KeyboardLayoutConfig(ribbon = emptyList(), rows = emptyList())
+    }
 
-        val rowTwo = KeyboardRow(
-            listOf(
-                KeyDefinition("a", "a", hint = ";", secondaries = SecondaryBindings(center = ";", top = ":", right = "@", bottom = "#"), weight = 1.5f),
-                KeyDefinition("s", "s", hint = ":", secondaries = SecondaryBindings(center = ":")),
-                KeyDefinition("d", "d", hint = "\"", secondaries = SecondaryBindings(center = "\"")),
-                KeyDefinition("f", "f", hint = "'", secondaries = SecondaryBindings(center = "'")),
-                KeyDefinition("g", "g", hint = "`", secondaries = SecondaryBindings(center = "`")),
-                KeyDefinition("h", "h", hint = "/", secondaries = SecondaryBindings(center = "/")),
-                KeyDefinition("j", "j", hint = "\\", secondaries = SecondaryBindings(center = "\\")),
-                KeyDefinition("k", "k", hint = "?", secondaries = SecondaryBindings(center = "?")),
-                KeyDefinition("l", "l", hint = "!", secondaries = SecondaryBindings(center = "!"), weight = 1.5f)
+    private fun enforceSystemKeys(config: KeyboardLayoutConfig): KeyboardLayoutConfig {
+        val updatedRows = config.rows.map { row ->
+            KeyboardRow(
+                keys = row.keys.map { key ->
+                    when (key.id) {
+                        "shift" -> key.copy(primaryChar = "⇧", type = KeyType.SHIFT, weight = if (key.weight <= 1.0f) 1.5f else key.weight)
+                        "backspace" -> key.copy(primaryChar = "⌫", type = KeyType.BACKSPACE, weight = if (key.weight <= 1.0f) 1.5f else key.weight)
+                        "ctrl" -> key.copy(primaryChar = "CTRL", type = KeyType.MODIFIER, weight = if (key.weight <= 1.0f) 1.5f else key.weight)
+                        "alt" -> key.copy(primaryChar = "ALT", type = KeyType.MODIFIER, weight = if (key.weight <= 1.0f) 1.5f else key.weight)
+                        "space" -> key.copy(primaryChar = " ", type = KeyType.SPACE, weight = if (key.weight <= 1.0f) 5.5f else key.weight)
+                        "enter" -> key.copy(primaryChar = "↵", type = KeyType.ENTER, weight = if (key.weight <= 1.0f) 1.5f else key.weight)
+                        else -> key
+                    }
+                }
             )
-        )
-
-        val rowThree = KeyboardRow(
-            listOf(
-                KeyDefinition("shift", "⇧", type = KeyType.SHIFT, weight = 1.5f),
-                KeyDefinition("z", "z", hint = ",", secondaries = SecondaryBindings(center = ",", right = "<")),
-                KeyDefinition("x", "x", hint = ".", secondaries = SecondaryBindings(center = ".", right = ">")),
-                KeyDefinition("c", "c", hint = "(", secondaries = SecondaryBindings(center = "(", top = "{", right = "[", bottom = "]", left = ")")),
-                KeyDefinition("v", "v", hint = ")", secondaries = SecondaryBindings(center = ")")),
-                KeyDefinition("b", "b", hint = "[", secondaries = SecondaryBindings(center = "[")),
-                KeyDefinition("n", "n", hint = "]", secondaries = SecondaryBindings(center = "]")),
-                KeyDefinition("m", "m", hint = "_", secondaries = SecondaryBindings(center = "_")),
-                KeyDefinition("backspace", "⌫", type = KeyType.BACKSPACE, weight = 1.5f)
-            )
-        )
-
-        val rowFour = KeyboardRow(
-            listOf(
-                KeyDefinition("ctrl", "CTRL", type = KeyType.MODIFIER, weight = 1.5f),
-                KeyDefinition("alt", "ALT", type = KeyType.MODIFIER, weight = 1.5f),
-                KeyDefinition("space", " ", type = KeyType.SPACE, weight = 5.5f),
-                KeyDefinition("enter", "↵", type = KeyType.ENTER, weight = 1.5f)
-            )
-        )
-
-        return KeyboardLayoutConfig(
-            ribbon = emptyList(),
-            rows = listOf(numberRow, rowOne, rowTwo, rowThree, rowFour)
-        )
+        }
+        return config.copy(rows = updatedRows)
     }
 }

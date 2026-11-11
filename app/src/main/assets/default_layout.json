@@ -1,0 +1,299 @@
+{
+    "ribbon": [],
+    "rows": [
+        {
+            "keys": [
+                {
+                    "id": "1",
+                    "primaryChar": "1",
+                    "hint": "~",
+                    "secondaries": {
+                        "center": "~"
+                    }
+                },
+                {
+                    "id": "2",
+                    "primaryChar": "2",
+                    "hint": "`",
+                    "secondaries": {
+                        "center": "`"
+                    }
+                },
+                {
+                    "id": "3",
+                    "primaryChar": "3"
+                },
+                {
+                    "id": "4",
+                    "primaryChar": "4"
+                },
+                {
+                    "id": "5",
+                    "primaryChar": "5"
+                },
+                {
+                    "id": "6",
+                    "primaryChar": "6"
+                },
+                {
+                    "id": "7",
+                    "primaryChar": "7",
+                    "hint": "_",
+                    "secondaries": {
+                        "center": "_"
+                    }
+                },
+                {
+                    "id": "8",
+                    "primaryChar": "8",
+                    "hint": "-",
+                    "secondaries": {
+                        "center": "-"
+                    }
+                },
+                {
+                    "id": "9",
+                    "primaryChar": "9",
+                    "hint": "+",
+                    "secondaries": {
+                        "center": "+"
+                    }
+                },
+                {
+                    "id": "0",
+                    "primaryChar": "0",
+                    "hint": "=",
+                    "secondaries": {
+                        "center": "="
+                    }
+                }
+            ]
+        },
+        {
+            "keys": [
+                {
+                    "id": "q",
+                    "primaryChar": "q",
+                    "hint": "{",
+                    "secondaries": {
+                        "center": "{"
+                    }
+                },
+                {
+                    "id": "w",
+                    "primaryChar": "w",
+                    "secondaries": {}
+                },
+                {
+                    "id": "e",
+                    "primaryChar": "e"
+                },
+                {
+                    "id": "r",
+                    "primaryChar": "r"
+                },
+                {
+                    "id": "t",
+                    "primaryChar": "t"
+                },
+                {
+                    "id": "y",
+                    "primaryChar": "y",
+                    "hint": "\\",
+                    "secondaries": {
+                        "center": "\\"
+                    }
+                },
+                {
+                    "id": "u",
+                    "primaryChar": "u",
+                    "hint": "|",
+                    "secondaries": {
+                        "center": "|"
+                    }
+                },
+                {
+                    "id": "i",
+                    "primaryChar": "i",
+                    "hint": "/",
+                    "secondaries": {
+                        "center": "/"
+                    }
+                },
+                {
+                    "id": "o",
+                    "primaryChar": "o",
+                    "secondaries": {}
+                },
+                {
+                    "id": "p",
+                    "primaryChar": "p",
+                    "hint": "}",
+                    "secondaries": {
+                        "center": "}"
+                    }
+                }
+            ]
+        },
+        {
+            "keys": [
+                {
+                    "id": "a",
+                    "primaryChar": "a",
+                    "hint": "[",
+                    "secondaries": {
+                        "center": "["
+                    },
+                    "weight": 1.5
+                },
+                {
+                    "id": "s",
+                    "primaryChar": "s",
+                    "hint": "\"",
+                    "secondaries": {
+                        "center": "\""
+                    }
+                },
+                {
+                    "id": "d",
+                    "primaryChar": "d",
+                    "hint": ":",
+                    "secondaries": {
+                        "center": ":"
+                    }
+                },
+                {
+                    "id": "f",
+                    "primaryChar": "f"
+                },
+                {
+                    "id": "g",
+                    "primaryChar": "g"
+                },
+                {
+                    "id": "h",
+                    "primaryChar": "h"
+                },
+                {
+                    "id": "j",
+                    "primaryChar": "j",
+                    "hint": ";",
+                    "secondaries": {
+                        "center": ";"
+                    }
+                },
+                {
+                    "id": "k",
+                    "primaryChar": "k",
+                    "hint": "'",
+                    "secondaries": {
+                        "center": "'"
+                    }
+                },
+                {
+                    "id": "l",
+                    "primaryChar": "l",
+                    "hint": "]",
+                    "secondaries": {
+                        "center": "]"
+                    },
+                    "weight": 1.5
+                }
+            ]
+        },
+        {
+            "keys": [
+                {
+                    "id": "shift",
+                    "primaryChar": "⇧",
+                    "type": "SHIFT",
+                    "weight": 1.5
+                },
+                {
+                    "id": "z",
+                    "primaryChar": "z",
+                    "hint": ",",
+                    "secondaries": {
+                        "center": ","
+                    }
+                },
+                {
+                    "id": "x",
+                    "primaryChar": "x",
+                    "hint": "<",
+                    "secondaries": {
+                        "center": "<"
+                    }
+                },
+                {
+                    "id": "c",
+                    "primaryChar": "c",
+                    "secondaries": {}
+                },
+                {
+                    "id": "v",
+                    "primaryChar": "v",
+                    "secondaries": {}
+                },
+                {
+                    "id": "b",
+                    "primaryChar": "b",
+                    "hint": ">",
+                    "secondaries": {
+                        "center": ">"
+                    }
+                },
+                {
+                    "id": "n",
+                    "primaryChar": "n",
+                    "hint": ".",
+                    "secondaries": {
+                        "center": "."
+                    }
+                },
+                {
+                    "id": "m",
+                    "primaryChar": "m",
+                    "hint": "?",
+                    "secondaries": {
+                        "center": "?"
+                    }
+                },
+                {
+                    "id": "backspace",
+                    "primaryChar": "⌫",
+                    "type": "BACKSPACE",
+                    "weight": 1.5
+                }
+            ]
+        },
+        {
+            "keys": [
+                {
+                    "id": "ctrl",
+                    "primaryChar": "CTRL",
+                    "type": "MODIFIER",
+                    "weight": 1.5
+                },
+                {
+                    "id": "alt",
+                    "primaryChar": "ALT",
+                    "type": "MODIFIER",
+                    "weight": 1.5
+                },
+                {
+                    "id": "space",
+                    "primaryChar": " ",
+                    "type": "SPACE",
+                    "weight": 5.5
+                },
+                {
+                    "id": "enter",
+                    "primaryChar": "↵",
+                    "type": "ENTER",
+                    "weight": 1.5
+                }
+            ]
+        }
+    ]
+}

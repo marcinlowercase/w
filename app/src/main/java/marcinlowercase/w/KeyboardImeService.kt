@@ -102,6 +102,7 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
                 viewModel.fontFamily.value = loadFontFamilyFromPath(path)
             }
         }
+        viewModel.layoutConfig.value = marcinlowercase.w.model.DefaultLayout.create(this)
         serviceScope.launch {
             preferences.layoutConfigJson.collect { jsonString ->
                 if (!jsonString.isNullOrEmpty()) {
@@ -110,8 +111,7 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
                         viewModel.layoutConfig.value = parsed
                     }
                 } else {
-                    // Revert to default if cleared/reset
-                    viewModel.layoutConfig.value = marcinlowercase.w.model.DefaultLayout.create()
+                    viewModel.layoutConfig.value = marcinlowercase.w.model.DefaultLayout.create(this@KeyboardImeService)
                 }
             }
         }

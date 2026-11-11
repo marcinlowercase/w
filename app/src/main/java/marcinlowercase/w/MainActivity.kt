@@ -432,7 +432,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
     val preferences = remember { KeyboardPreferences(context) }
 
     val savedJson by preferences.layoutConfigJson.collectAsState(initial = null)
-    var layoutConfig by remember { mutableStateOf(DefaultLayout.create()) }
+    var layoutConfig by remember { mutableStateOf(DefaultLayout.create(context)) }
     var selectedKeyId by remember { mutableStateOf("c") }
 
     LaunchedEffect(savedJson) {
@@ -535,7 +535,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                         Text("Export")
                     }
                     TextButton(onClick = {
-                        val default = DefaultLayout.create()
+                        val default = DefaultLayout.create(context)
                         saveConfig(default)
                     }) {
                         Text("Reset")
