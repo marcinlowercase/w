@@ -221,7 +221,7 @@ class KeyboardViewModel : ViewModel() {
     }
 
     fun glideCursor(delta: Int): Boolean {
-        return onCursorGlideHandler?.invoke(delta, shiftState.value == ShiftState.SHIFTED) ?: false
+        return onCursorGlideHandler?.invoke(delta, shiftState.value != ShiftState.OFF) ?: false
     }
 
     fun onGlideEnd() {

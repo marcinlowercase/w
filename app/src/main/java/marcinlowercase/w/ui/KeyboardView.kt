@@ -1084,35 +1084,50 @@ fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                     val stepThreshold = 30f
                     var hasGlided = false
 
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull() ?: break
-
-                        if (!change.pressed) {
-                            isPressedDown = false
-                            if (!hasGlided) {
-                                viewModel.pressKey(key)
-                            } else {
-                                viewModel.onGlideEnd()
+                    val releasedEarly = withTimeoutOrNull(200L) {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull() ?: break
+                            if (!change.pressed) {
+                                return@withTimeoutOrNull true
                             }
-                            break
-                        } else {
-                            val dragX = change.position.x - change.previousPosition.x
-                            accumulatedDrag += dragX
+                        }
+                        false
+                    }
 
-                            if (kotlin.math.abs(accumulatedDrag) >= stepThreshold) {
-                                hasGlided = true
-                                val steps = (accumulatedDrag / stepThreshold).toInt()
-                                if (steps != 0) {
-                                    val moved = viewModel.glideCursor(steps)
-                                    if (moved) {
-                                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    if (releasedEarly == true) {
+                        viewModel.pressKey(key)
+                    } else {
+                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull() ?: break
+
+                            if (!change.pressed) {
+                                if (hasGlided) {
+                                    viewModel.onGlideEnd()
+                                }
+                                break
+                            } else {
+                                val dragX = change.position.x - change.previousPosition.x
+                                accumulatedDrag += dragX
+
+                                if (kotlin.math.abs(accumulatedDrag) >= stepThreshold) {
+                                    hasGlided = true
+                                    val steps = (accumulatedDrag / stepThreshold).toInt()
+                                    if (steps != 0) {
+                                        val moved = viewModel.glideCursor(steps)
+                                        if (moved) {
+                                            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                        }
+                                        accumulatedDrag -= steps * stepThreshold
                                     }
-                                    accumulatedDrag -= steps * stepThreshold
                                 }
                             }
                         }
                     }
+                    isPressedDown = false
                 }
             }
             .graphicsLayer {
