@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "studio.oo1.keyboard"
-        minSdk = 29
+        minSdk = 26
         targetSdk = 37
         versionCode = 3
         versionName = "0.0.1"
