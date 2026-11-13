@@ -32,9 +32,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import android.os.Build
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.ui.platform.LocalContext
+import marcinlowercase.w.model.KeyboardThemeMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -90,8 +97,131 @@ object KeyboardDimens {
     val keyCornerRadius = 12.dp
 }
 
+data class KeyboardColors(
+    val background: Color,
+    val characterKey: Color,
+    val modifierKey: Color,
+    val enterKey: Color,
+    val spaceKey: Color,
+    val keyPressed: Color,
+    val ribbon: Color,
+    val textOnCharacter: Color,
+    val textOnModifier: Color,
+    val textOnEnter: Color,
+    val hint: Color,
+    val popupBackground: Color,
+    val popupText: Color,
+    val highlight: Color,
+    val onHighlight: Color
+)
+
 val LocalKeyboardViewModel = staticCompositionLocalOf<marcinlowercase.w.viewmodel.KeyboardViewModel> {
     error("No KeyboardViewModel provided")
+}
+
+val LocalKeyboardColors = staticCompositionLocalOf<KeyboardColors> {
+    error("No KeyboardColors provided")
+}
+
+@Composable
+fun resolveKeyboardColors(
+    mode: KeyboardThemeMode,
+    userHighlightColor: Color
+): KeyboardColors {
+    val isSystemDark = isSystemInDarkTheme()
+    val context = LocalContext.current
+
+    fun blackPalette(): KeyboardColors {
+        val onHighlight = if (userHighlightColor.luminance() > 0.5f) Color.Black else Color.White
+        return KeyboardColors(
+            background = Color.Black,
+            characterKey = Color(0xFF1C1C1E),
+            modifierKey = Color(0xFF2C2C2E),
+            enterKey = Color(0xFF2C2C2E),
+            spaceKey = Color(0xFF1C1C1E),
+            keyPressed = Color.Black,
+            ribbon = Color(0xFF1C1C1E),
+            textOnCharacter = Color.White,
+            textOnModifier = Color.White,
+            textOnEnter = Color.White,
+            hint = Color(0xFF8E8E93),
+            popupBackground = Color(0xFF1C1C1E),
+            popupText = Color.White,
+            highlight = userHighlightColor,
+            onHighlight = onHighlight
+        )
+    }
+
+    fun whitePalette(): KeyboardColors {
+        val onHighlight = if (userHighlightColor.luminance() > 0.5f) Color.Black else Color.White
+        return KeyboardColors(
+            background = Color.White,
+            characterKey = Color(0xFFEEEEEE),
+            modifierKey = Color(0xFFDCE0E5),
+            enterKey = Color(0xFFDCE0E5),
+            spaceKey = Color(0xFFEEEEEE),
+            keyPressed = Color.White,
+            ribbon = Color(0xFFEEEEEE),
+            textOnCharacter = Color.Black,
+            textOnModifier = Color.Black,
+            textOnEnter = Color.Black,
+            hint = Color(0xFF9CA3AF),
+            popupBackground = Color(0xFFEEEEEE),
+            popupText = Color.Black,
+            highlight = userHighlightColor,
+            onHighlight = onHighlight
+        )
+    }
+
+    return when (mode) {
+        KeyboardThemeMode.SYSTEM -> if (isSystemDark) blackPalette() else whitePalette()
+        KeyboardThemeMode.BLACK -> blackPalette()
+        KeyboardThemeMode.WHITE -> whitePalette()
+        KeyboardThemeMode.MATERIAL -> {
+            val scheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (isSystemDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            } else {
+                if (isSystemDark) darkColorScheme() else lightColorScheme()
+            }
+            if (isSystemDark) {
+                KeyboardColors(
+                    background = scheme.surfaceContainerLow,
+                    characterKey = scheme.surfaceContainerHigh,
+                    modifierKey = scheme.secondaryContainer,
+                    enterKey = scheme.primaryContainer,
+                    spaceKey = scheme.surfaceContainerHigh,
+                    keyPressed = scheme.surfaceContainerHighest,
+                    ribbon = scheme.surfaceContainerHigh,
+                    textOnCharacter = scheme.onSurface,
+                    textOnModifier = scheme.onSecondaryContainer,
+                    textOnEnter = scheme.onPrimaryContainer,
+                    hint = scheme.onSurfaceVariant,
+                    popupBackground = scheme.surfaceContainerHighest,
+                    popupText = scheme.onSurface,
+                    highlight = scheme.primary,
+                    onHighlight = scheme.onPrimary
+                )
+            } else {
+                KeyboardColors(
+                    background = scheme.surfaceContainer,
+                    characterKey = scheme.surfaceContainerLowest,
+                    modifierKey = scheme.secondaryContainer,
+                    enterKey = scheme.primaryContainer,
+                    spaceKey = scheme.surfaceContainerLowest,
+                    keyPressed = scheme.surfaceContainerHigh,
+                    ribbon = scheme.surfaceContainerLowest,
+                    textOnCharacter = scheme.onSurface,
+                    textOnModifier = scheme.onSecondaryContainer,
+                    textOnEnter = scheme.onPrimaryContainer,
+                    hint = scheme.onSurfaceVariant,
+                    popupBackground = scheme.surfaceContainerLowest,
+                    popupText = scheme.onSurface,
+                    highlight = scheme.primary,
+                    onHighlight = scheme.onPrimary
+                )
+            }
+        }
+    }
 }
 
 fun isSvgOrPath(text: String?): Boolean {
@@ -168,13 +298,17 @@ fun KeyboardView(
     val density = LocalDensity.current
     var shiftKeyWidthDp by remember { mutableStateOf<Dp?>(null) }
 
-    // Explicitly observe the State so recomposition triggers when layout changes
     val config by viewModel.layoutConfig
+    val keyboardColors = resolveKeyboardColors(
+        mode = viewModel.themeMode.value,
+        userHighlightColor = viewModel.highlightColor.value
+    )
 
-    CompositionLocalProvider(LocalKeyboardViewModel provides viewModel) {
-
-        val isDark = isSystemInDarkTheme()
-        val keyboardBgColor = if (isDark) Color.Black else Color.White
+    CompositionLocalProvider(
+        LocalKeyboardViewModel provides viewModel,
+        LocalKeyboardColors provides keyboardColors
+    ) {
+        val keyboardBgColor = keyboardColors.background
         val topCornerRadiusDp = viewModel.topCornerRadiusDp.value.dp
 
         Column(
@@ -350,11 +484,11 @@ enum class ShiftHoldAction {
 @Composable
 fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     val viewModel = LocalKeyboardViewModel.current
+    val colors = LocalKeyboardColors.current
     val liveKey = viewModel.layoutConfig.value.rows.flatMap { it.keys }
         .find { it.id == key.id } ?: key
     val view = LocalView.current
     val density = LocalDensity.current
-    val isDark = isSystemInDarkTheme()
     val coroutineScope = rememberCoroutineScope()
     var isPressedDown by remember { mutableStateOf(false) }
     var showPopup by remember { mutableStateOf(false) }
@@ -373,8 +507,8 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
         },
         label = "popupTransition"
     )
-    val highlightColor = viewModel.highlightColor.value
-    val onHighlightColor = if (highlightColor.luminance() > 0.5f) Color.Black else Color.White
+    val highlightColor = colors.highlight
+    val onHighlightColor = colors.onHighlight
 
     val isShiftActive = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
     val isCtrlArmed = key.id == "ctrl" && viewModel.ctrlArmed.value
@@ -385,20 +519,21 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
 
     val keyBackground = when {
         isModifierArmed -> highlightColor
-        isPressedDown -> if (isDark) Color.Black else Color.White
-        key.type == KeyType.CHARACTER -> if (isDark) Color(0xFF1C1C1E) else Color(0xFFEEEEEE)
-        else -> if (isDark) Color(0xFF2C2C2E) else Color(0xFFDCE0E5)
+        isPressedDown -> colors.keyPressed
+        key.type == KeyType.CHARACTER -> colors.characterKey
+        key.type == KeyType.ENTER -> colors.enterKey
+        else -> colors.modifierKey
     }
     val keyTextColor = when {
         isModifierArmed -> onHighlightColor
-        isDark -> Color.White
-        else -> Color.Black
+        key.type == KeyType.CHARACTER -> colors.textOnCharacter
+        key.type == KeyType.ENTER -> colors.textOnEnter
+        else -> colors.textOnModifier
     }
 
-    val hintColor = if (isDark) Color(0xFF8E8E93) else Color(0xFF9CA3AF)
-    val popupBg = if (isDark) Color(0xFF1C1C1E) else Color(0xFFEEEEEE)
-//    val popupBorder = if (isDark) Color(0xFF38383A) else Color(0xFFD1D5DB)
-    val unselectedPopupTextColor = if (isDark) Color.White else Color.Black
+    val hintColor = colors.hint
+    val popupBg = colors.popupBackground
+    val unselectedPopupTextColor = colors.popupText
 
     val activeFont = viewModel.fontFamily.value
 
@@ -1113,18 +1248,14 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
 @Composable
 fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     val viewModel = LocalKeyboardViewModel.current
+    val colors = LocalKeyboardColors.current
     val view = LocalView.current
-    val isDark = isSystemInDarkTheme()
     var isPressedDown by remember { mutableStateOf(false) }
     val isShiftOn = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
 
     val extraBottomPadding = if (isBottomRow) viewModel.bottomChinPaddingDp.value.dp else 0.dp
-    val spaceBg = when {
-        isPressedDown -> if (isDark) Color.Black else Color.White
-        isDark -> Color(0xFF1C1C1E)
-        else -> Color(0xFFEEEEEE)
-    }
-    val spaceTextColor = if (isDark) Color.White else Color.Black
+    val spaceBg = if (isPressedDown) colors.keyPressed else colors.spaceKey
+    val spaceTextColor = colors.textOnCharacter
     val cellHeight = KeyboardDimens.keyHeight + KeyboardDimens.rowGap + extraBottomPadding
     val spaceLabel = if (isShiftOn) "SPACE" else "space"
 

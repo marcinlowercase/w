@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import marcinlowercase.w.model.KeyboardThemeMode
 
 val Context.dataStore by preferencesDataStore(name = "keyboard_preferences")
 
@@ -20,6 +21,7 @@ class KeyboardPreferences(private val context: Context) {
         val KEY_CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
         val KEY_SOUND_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("sound_on_keypress")
         val KEY_OUTSYNC_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("outsync_enabled")
+        val KEY_THEME_MODE = stringPreferencesKey("keyboard_theme_mode")
     }
 
     val bottomPaddingDp: Flow<Int> = context.dataStore.data.map { preferences ->
@@ -79,6 +81,17 @@ class KeyboardPreferences(private val context: Context) {
     suspend fun setOutsyncEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[KEY_OUTSYNC_ENABLED] = enabled
+        }
+    }
+
+    val themeMode: Flow<KeyboardThemeMode> = context.dataStore.data.map { preferences ->
+        val stored = preferences[KEY_THEME_MODE]
+        KeyboardThemeMode.entries.find { it.key == stored } ?: KeyboardThemeMode.SYSTEM
+    }
+
+    suspend fun setThemeMode(mode: KeyboardThemeMode) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_THEME_MODE] = mode.key
         }
     }
 

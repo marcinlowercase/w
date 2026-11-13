@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import marcinlowercase.w.model.DefaultLayout
 import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
+import marcinlowercase.w.model.KeyboardThemeMode
 import marcinlowercase.w.model.PopupDirection
 import marcinlowercase.w.model.SecondaryBindings
 import marcinlowercase.w.model.ShiftState
@@ -26,6 +27,7 @@ class KeyboardViewModel : ViewModel() {
     val activePopupKeyId = mutableStateOf<String?>(null)
     val soundEnabled = mutableStateOf(true)
     val outsyncEnabled = mutableStateOf(true)
+    val themeMode = mutableStateOf(KeyboardThemeMode.SYSTEM)
     var audioManager: AudioManager? = null
     private var lastShiftPressTime = 0L
 

@@ -2,6 +2,13 @@ package marcinlowercase.w.model
 
 import kotlinx.serialization.Serializable
 
+enum class KeyboardThemeMode(val key: String, val label: String) {
+    SYSTEM("system", "Follow Device"),
+    BLACK("black", "Black"),
+    WHITE("white", "White"),
+    MATERIAL("material", "Material")
+}
+
 enum class ShiftState {
     OFF,
     SHIFTED,

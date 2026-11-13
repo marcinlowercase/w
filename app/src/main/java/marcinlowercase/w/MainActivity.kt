@@ -79,6 +79,7 @@ import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
 import marcinlowercase.w.model.KeyboardLayoutConfig
 import marcinlowercase.w.model.KeyboardRow
+import marcinlowercase.w.model.KeyboardThemeMode
 import marcinlowercase.w.model.SecondaryBindings
 import marcinlowercase.w.ui.theme.WTheme
 import java.io.File
@@ -140,6 +141,7 @@ fun SettingsScreen(
     val customFontNameState = preferences.customFontName.collectAsState(initial = null)
     val soundEnabledState = preferences.soundEnabled.collectAsState(initial = true)
     val outsyncEnabledState = preferences.outsyncEnabled.collectAsState(initial = true)
+    val themeModeState = preferences.themeMode.collectAsState(initial = KeyboardThemeMode.SYSTEM)
     var browserInstalled by remember { mutableStateOf(isBrowserInstalled(context)) }
     var testInputText by remember { mutableStateOf("") }
 
@@ -261,6 +263,16 @@ fun SettingsScreen(
                 )
             }
         }
+
+        ThemePickerCard(
+            currentMode = themeModeState.value,
+            accentColor = Color(highlightColorState.value),
+            onModeSelected = { mode ->
+                coroutineScope.launch {
+                    preferences.setThemeMode(mode)
+                }
+            }
+        )
 
         ColorPickerCard(
             currentColorLong = highlightColorState.value,
@@ -970,6 +982,69 @@ fun SecondaryDirectionEditor(
                 } else null,
                 modifier = Modifier.weight(1f)
             )
+        }
+    }
+}
+
+@Composable
+fun ThemePickerCard(
+    currentMode: KeyboardThemeMode,
+    accentColor: Color,
+    onModeSelected: (KeyboardThemeMode) -> Unit
+) {
+    val onAccentColor = if (accentColor.luminance() > 0.5f) Color.Black else Color.White
+    val options = KeyboardThemeMode.entries
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Keyboard Theme",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "Choose between follow device, black, white, or Material dynamic colors.",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                options.chunked(2).forEach { rowOptions ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        rowOptions.forEach { mode ->
+                            val isSelected = mode == currentMode
+                            val bgColor = if (isSelected) accentColor else MaterialTheme.colorScheme.surfaceVariant
+                            val textColor = if (isSelected) onAccentColor else MaterialTheme.colorScheme.onSurfaceVariant
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(bgColor)
+                                    .clickable { onModeSelected(mode) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = mode.label,
+                                    color = textColor,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -8,6 +8,7 @@ import android.database.ContentObserver
 import android.inputmethodservice.InputMethodService
 import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
@@ -33,9 +34,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import marcinlowercase.w.model.KeyboardThemeMode
 import marcinlowercase.w.data.KeyboardPreferences
 import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
@@ -114,6 +121,14 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             preferences.outsyncEnabled.collect { enabled ->
                 viewModel.outsyncEnabled.value = enabled
                 updateBrowserDesign()
+            }
+        }
+        serviceScope.launch {
+            preferences.themeMode.collect { mode ->
+                viewModel.themeMode.value = mode
+                window?.window?.let { win ->
+                    applyNavigationBarTheme(win)
+                }
             }
         }
         serviceScope.launch {
@@ -225,9 +240,31 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
     }
 
     private fun applyNavigationBarTheme(win: Window) {
-        val isDarkMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        win.navigationBarColor = if (isDarkMode) android.graphics.Color.BLACK else android.graphics.Color.WHITE
-        WindowCompat.getInsetsController(win, win.decorView).isAppearanceLightNavigationBars = !isDarkMode
+        val isSystemDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        when (viewModel.themeMode.value) {
+            KeyboardThemeMode.SYSTEM -> {
+                win.navigationBarColor = if (isSystemDark) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+                WindowCompat.getInsetsController(win, win.decorView).isAppearanceLightNavigationBars = !isSystemDark
+            }
+            KeyboardThemeMode.BLACK -> {
+                win.navigationBarColor = android.graphics.Color.BLACK
+                WindowCompat.getInsetsController(win, win.decorView).isAppearanceLightNavigationBars = false
+            }
+            KeyboardThemeMode.WHITE -> {
+                win.navigationBarColor = android.graphics.Color.WHITE
+                WindowCompat.getInsetsController(win, win.decorView).isAppearanceLightNavigationBars = true
+            }
+            KeyboardThemeMode.MATERIAL -> {
+                val colorScheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (isSystemDark) dynamicDarkColorScheme(this) else dynamicLightColorScheme(this)
+                } else {
+                    if (isSystemDark) darkColorScheme() else lightColorScheme()
+                }
+                val bgColor = if (isSystemDark) colorScheme.surfaceContainerLow else colorScheme.surfaceContainer
+                win.navigationBarColor = bgColor.toArgb()
+                WindowCompat.getInsetsController(win, win.decorView).isAppearanceLightNavigationBars = !isSystemDark
+            }
+        }
     }
 
     override fun onComputeInsets(outInsets: Insets) {
