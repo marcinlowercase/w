@@ -534,6 +534,8 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
             runCatching {
                 layoutConfig = Json.decodeFromString<KeyboardLayoutConfig>(currentJson)
             }
+        } else {
+            layoutConfig = DefaultLayout.create(context)
         }
     }
 
@@ -628,8 +630,10 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                         Text("Export")
                     }
                     TextButton(onClick = {
-                        val default = DefaultLayout.create(context)
-                        saveConfig(default)
+                        layoutConfig = DefaultLayout.create(context)
+                        coroutineScope.launch {
+                            preferences.clearLayoutConfigJson()
+                        }
                     }) {
                         Text("Reset")
                     }

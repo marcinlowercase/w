@@ -105,4 +105,10 @@ class KeyboardPreferences(private val context: Context) {
             preferences[KEY_LAYOUT_CONFIG_JSON] = json
         }
     }
+
+    suspend fun clearLayoutConfigJson() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(KEY_LAYOUT_CONFIG_JSON)
+        }
+    }
 }
