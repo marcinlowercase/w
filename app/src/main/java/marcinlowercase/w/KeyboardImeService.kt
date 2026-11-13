@@ -68,6 +68,7 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
     private var designObserver: ContentObserver? = null
     private var savedThemeMode = KeyboardThemeMode.SYSTEM
     private var savedHighlightColor = Color(0xFF001FFF)
+    private var currentTargetPackageName: String? = null
     private lateinit var preferences: KeyboardPreferences
 
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -82,6 +83,8 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         super.onStartInput(attribute, restarting)
         currentSelStart = attribute?.initialSelStart ?: 0
         currentSelEnd = attribute?.initialSelEnd ?: 0
+        currentTargetPackageName = attribute?.packageName
+        updateBrowserDesign()
     }
 
     override fun onUpdateSelection(
@@ -129,6 +132,12 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             }
         }
         serviceScope.launch {
+            preferences.roundCornerEnabled.collect { enabled ->
+                viewModel.roundCornerEnabled.value = enabled
+                updateBrowserDesign()
+            }
+        }
+        serviceScope.launch {
             preferences.themeMode.collect { mode ->
                 savedThemeMode = mode
                 updateBrowserDesign()
@@ -160,13 +169,19 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
 
     override fun onStartInputView(editorInfo: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(editorInfo, restarting)
+        if (editorInfo?.packageName != null) {
+            currentTargetPackageName = editorInfo.packageName
+        }
         updateBrowserDesign()
     }
 
     private fun updateBrowserDesign() {
-        val design = if (viewModel.outsyncEnabled.value) readBrowserDesign(this) else null
-        if (design != null) {
-            val isSharp = design.sharpMode == 2
+        val design = readBrowserDesign(this)
+        val isTargetBrowser = currentTargetPackageName in listOf("studio.oo1.browser", "marcinlowercase.a")
+        val isOutsyncActive = viewModel.outsyncEnabled.value && isTargetBrowser && design != null
+
+        if (isOutsyncActive) {
+            val isSharp = design!!.sharpMode == 2
             viewModel.topCornerRadiusDp.value = if (isSharp) 0f else design.hardwareCornerRadius.coerceAtLeast(0f)
             viewModel.topExtraPaddingDp.value = design.padding.coerceAtLeast(0f)
             if (design.isMaterialYou) {
@@ -177,11 +192,16 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
                 viewModel.highlightColor.value = Color(design.highlightColor)
             }
         } else {
-            viewModel.topCornerRadiusDp.value = 0f
+            if (viewModel.roundCornerEnabled.value && design != null) {
+                viewModel.topCornerRadiusDp.value = design.hardwareCornerRadius.coerceAtLeast(0f)
+            } else {
+                viewModel.topCornerRadiusDp.value = 0f
+            }
             viewModel.topExtraPaddingDp.value = 8f
             viewModel.themeMode.value = savedThemeMode
             viewModel.highlightColor.value = savedHighlightColor
         }
+
         window?.window?.let { win ->
             applyNavigationBarTheme(win)
         }

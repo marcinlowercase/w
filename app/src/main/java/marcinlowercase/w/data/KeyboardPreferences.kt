@@ -21,6 +21,7 @@ class KeyboardPreferences(private val context: Context) {
         val KEY_CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
         val KEY_SOUND_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("sound_on_keypress")
         val KEY_OUTSYNC_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("outsync_enabled")
+        val KEY_ROUND_CORNER_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("round_corner_enabled")
         val KEY_THEME_MODE = stringPreferencesKey("keyboard_theme_mode")
     }
 
@@ -81,6 +82,16 @@ class KeyboardPreferences(private val context: Context) {
     suspend fun setOutsyncEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[KEY_OUTSYNC_ENABLED] = enabled
+        }
+    }
+
+    val roundCornerEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_ROUND_CORNER_ENABLED] ?: true
+    }
+
+    suspend fun setRoundCornerEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_ROUND_CORNER_ENABLED] = enabled
         }
     }
 

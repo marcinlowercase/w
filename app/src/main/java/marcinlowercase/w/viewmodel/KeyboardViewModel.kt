@@ -28,6 +28,7 @@ class KeyboardViewModel : ViewModel() {
     val activePopupKeyId = mutableStateOf<String?>(null)
     val soundEnabled = mutableStateOf(true)
     val outsyncEnabled = mutableStateOf(true)
+    val roundCornerEnabled = mutableStateOf(true)
     val themeMode = mutableStateOf(KeyboardThemeMode.SYSTEM)
     var audioManager: AudioManager? = null
     private var lastShiftPressTime = 0L

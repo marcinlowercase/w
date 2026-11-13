@@ -141,6 +141,7 @@ fun SettingsScreen(
     val customFontNameState = preferences.customFontName.collectAsState(initial = null)
     val soundEnabledState = preferences.soundEnabled.collectAsState(initial = true)
     val outsyncEnabledState = preferences.outsyncEnabled.collectAsState(initial = true)
+    val roundCornerEnabledState = preferences.roundCornerEnabled.collectAsState(initial = true)
     val themeModeState = preferences.themeMode.collectAsState(initial = KeyboardThemeMode.SYSTEM)
     var browserInstalled by remember { mutableStateOf(isBrowserInstalled(context)) }
     var testInputText by remember { mutableStateOf("") }
@@ -244,7 +245,7 @@ fun SettingsScreen(
                     )
                     Text(
                         text = if (browserInstalled) {
-                            "Sync top curve, padding, theme, and highlight color with \"the browser of oo1 studio\"."
+                            "Sync theme, padding, and highlight color dynamically when using the keyboard with \"the browser of oo1 studio\"."
                         } else {
                             "Download \"the browser of oo1 studio\" to enable \"outsync\"."
                         },
@@ -258,6 +259,49 @@ fun SettingsScreen(
                     onCheckedChange = { isChecked ->
                         coroutineScope.launch {
                             preferences.setOutsyncEnabled(isChecked)
+                        }
+                    }
+                )
+            }
+        }
+
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 12.dp)
+                ) {
+                    Text(
+                        text = "Round Corners",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = if (browserInstalled) {
+                            "Match the top curve to your device screen's hardware corner radius."
+                        } else {
+                            "Download \"the browser of oo1 studio\" to enable round corners."
+                        },
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = browserInstalled && roundCornerEnabledState.value,
+                    enabled = browserInstalled,
+                    onCheckedChange = { isChecked ->
+                        coroutineScope.launch {
+                            preferences.setRoundCornerEnabled(isChecked)
                         }
                     }
                 )
