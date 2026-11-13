@@ -166,7 +166,8 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
     private fun updateBrowserDesign() {
         val design = if (viewModel.outsyncEnabled.value) readBrowserDesign(this) else null
         if (design != null) {
-            viewModel.topCornerRadiusDp.value = design.hardwareCornerRadius.coerceAtLeast(0f)
+            val isSharp = design.sharpMode == 2
+            viewModel.topCornerRadiusDp.value = if (isSharp) 0f else design.hardwareCornerRadius.coerceAtLeast(0f)
             viewModel.topExtraPaddingDp.value = design.padding.coerceAtLeast(0f)
             if (design.isMaterialYou) {
                 viewModel.themeMode.value = KeyboardThemeMode.MATERIAL
