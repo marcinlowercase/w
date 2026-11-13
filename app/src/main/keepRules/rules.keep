@@ -1,7 +1,16 @@
 # Add project specific R8 rules here.
 # AGP will combine all keep rule files in src/main/keepRules to pass to R8
 
--dontoptimize
+-keepattributes *Annotation*, InnerClasses, Signature
+
 -keep class kotlinx.coroutines.** { *; }
--keep class kotlin.sequences.** { *; }
 -dontwarn kotlinx.coroutines.**
+-keep class kotlin.sequences.** { *; }
+
+-keepclassmembers class * {
+    @kotlinx.serialization.Serializable <fields>;
+}
+-keepclassmembers class * extends kotlinx.serialization.KSerializer {
+    <fields>;
+    <methods>;
+}
