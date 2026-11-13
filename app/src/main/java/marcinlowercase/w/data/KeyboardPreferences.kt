@@ -19,6 +19,7 @@ class KeyboardPreferences(private val context: Context) {
         val KEY_CUSTOM_FONT_PATH = stringPreferencesKey("custom_font_path")
         val KEY_CUSTOM_FONT_NAME = stringPreferencesKey("custom_font_name")
         val KEY_SOUND_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("sound_on_keypress")
+        val KEY_OUTSYNC_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("outsync_enabled")
     }
 
     val bottomPaddingDp: Flow<Int> = context.dataStore.data.map { preferences ->
@@ -68,6 +69,16 @@ class KeyboardPreferences(private val context: Context) {
     suspend fun setSoundEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[KEY_SOUND_ENABLED] = enabled
+        }
+    }
+
+    val outsyncEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_OUTSYNC_ENABLED] ?: true
+    }
+
+    suspend fun setOutsyncEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_OUTSYNC_ENABLED] = enabled
         }
     }
 

@@ -1,10 +1,13 @@
 package marcinlowercase.w
 
 import android.content.ClipData
+import androidx.compose.runtime.DisposableEffect
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import androidx.compose.foundation.layout.PaddingValues
 import android.os.Bundle
 import android.provider.Settings
@@ -65,6 +68,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import marcinlowercase.w.data.KeyboardPreferences
@@ -133,7 +139,22 @@ fun SettingsScreen(
     val highlightColorState = preferences.highlightColorLong.collectAsState(initial = 0xFF001FFFL)
     val customFontNameState = preferences.customFontName.collectAsState(initial = null)
     val soundEnabledState = preferences.soundEnabled.collectAsState(initial = true)
+    val outsyncEnabledState = preferences.outsyncEnabled.collectAsState(initial = true)
+    var browserInstalled by remember { mutableStateOf(isBrowserInstalled(context)) }
     var testInputText by remember { mutableStateOf("") }
+
+    DisposableEffect(context) {
+        val lifecycleOwner = context as? LifecycleOwner
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                browserInstalled = isBrowserInstalled(context)
+            }
+        }
+        lifecycleOwner?.lifecycle?.addObserver(observer)
+        onDispose {
+            lifecycleOwner?.lifecycle?.removeObserver(observer)
+        }
+    }
 
     val fontPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -192,6 +213,49 @@ fun SettingsScreen(
                     onCheckedChange = { isChecked ->
                         coroutineScope.launch {
                             preferences.setSoundEnabled(isChecked)
+                        }
+                    }
+                )
+            }
+        }
+
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 12.dp)
+                ) {
+                    Text(
+                        text = "outsync",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = if (browserInstalled) {
+                            "Sync top curve design with \"the browser of oo1 studio\"."
+                        } else {
+                            "Download \"the browser of oo1 studio\" to enable \"outsync\"."
+                        },
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = browserInstalled && outsyncEnabledState.value,
+                    enabled = browserInstalled,
+                    onCheckedChange = { isChecked ->
+                        coroutineScope.launch {
+                            preferences.setOutsyncEnabled(isChecked)
                         }
                     }
                 )
@@ -378,6 +442,23 @@ fun SettingsScreen(
                     shape = RoundedCornerShape(12.dp)
                 )
             }
+        }
+    }
+}
+
+fun isBrowserInstalled(context: Context): Boolean {
+    val packages = listOf("studio.oo1.browser", "marcinlowercase.a")
+    return packages.any { pkg ->
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(pkg, 0)
+            }
+            true
+        } catch (_: PackageManager.NameNotFoundException) {
+            false
         }
     }
 }

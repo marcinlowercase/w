@@ -16,6 +16,7 @@ class KeyboardViewModel : ViewModel() {
     val layoutConfig = mutableStateOf(DefaultLayout.create())
     val shiftState = mutableStateOf(ShiftState.OFF)
     val bottomChinPaddingDp = mutableStateOf(32)
+    val topCornerRadiusDp = mutableStateOf(0f)
     val highlightColor = mutableStateOf(Color(0xFF001FFF))
     val fontFamily = mutableStateOf<FontFamily>(FontFamily.Monospace)
     val ctrlArmed = mutableStateOf(false)
@@ -24,6 +25,7 @@ class KeyboardViewModel : ViewModel() {
     val altShiftArmed = mutableStateOf(false)
     val activePopupKeyId = mutableStateOf<String?>(null)
     val soundEnabled = mutableStateOf(true)
+    val outsyncEnabled = mutableStateOf(true)
     var audioManager: AudioManager? = null
     private var lastShiftPressTime = 0L
 

@@ -4,9 +4,14 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.res.Configuration
+import android.database.ContentObserver
 import android.inputmethodservice.InputMethodService
 import android.media.AudioManager
+import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.view.KeyEvent
+import android.view.inputmethod.EditorInfo
 import android.view.View
 import android.view.Window
 import android.view.inputmethod.ExtractedTextRequest
@@ -41,9 +46,17 @@ import marcinlowercase.w.ui.KeyboardView
 import marcinlowercase.w.viewmodel.KeyboardViewModel
 import java.io.File
 
+data class BrowserDesign(
+    val sharpMode: Int,
+    val currentCornerRadius: Float,
+    val hardwareCornerRadius: Float,
+    val padding: Float
+)
+
 class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var designObserver: ContentObserver? = null
     private lateinit var preferences: KeyboardPreferences
 
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -98,6 +111,12 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             }
         }
         serviceScope.launch {
+            preferences.outsyncEnabled.collect { enabled ->
+                viewModel.outsyncEnabled.value = enabled
+                updateBrowserDesign()
+            }
+        }
+        serviceScope.launch {
             preferences.customFontPath.collect { path ->
                 viewModel.fontFamily.value = loadFontFamilyFromPath(path)
             }
@@ -115,8 +134,71 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
                 }
             }
         }
+        updateBrowserDesign()
+        registerBrowserDesignObserver()
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
+    }
+
+    override fun onStartInputView(editorInfo: EditorInfo?, restarting: Boolean) {
+        super.onStartInputView(editorInfo, restarting)
+        updateBrowserDesign()
+    }
+
+    private fun updateBrowserDesign() {
+        if (!viewModel.outsyncEnabled.value) {
+            viewModel.topCornerRadiusDp.value = 0f
+            return
+        }
+        val design = readBrowserDesign(this)
+        viewModel.topCornerRadiusDp.value = design?.hardwareCornerRadius?.coerceAtLeast(0f) ?: 0f
+    }
+
+    private fun registerBrowserDesignObserver() {
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                updateBrowserDesign()
+            }
+        }
+        designObserver = observer
+        val authorities = listOf(
+            "studio.oo1.browser.settingsprovider",
+            "marcinlowercase.a.settingsprovider"
+        )
+        for (authority in authorities) {
+            try {
+                contentResolver.registerContentObserver(
+                    Uri.parse("content://$authority/design"),
+                    false,
+                    observer
+                )
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun readBrowserDesign(context: Context): BrowserDesign? {
+        val authorities = listOf(
+            "studio.oo1.browser.settingsprovider",
+            "marcinlowercase.a.settingsprovider"
+        )
+        for (authority in authorities) {
+            val uri = Uri.parse("content://$authority/design")
+            try {
+                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        return BrowserDesign(
+                            sharpMode = cursor.getInt(cursor.getColumnIndexOrThrow("sharp_mode")),
+                            currentCornerRadius = cursor.getFloat(cursor.getColumnIndexOrThrow("current_corner_radius")),
+                            hardwareCornerRadius = cursor.getFloat(cursor.getColumnIndexOrThrow("hardware_corner_radius")),
+                            padding = cursor.getFloat(cursor.getColumnIndexOrThrow("padding"))
+                        )
+                    }
+                }
+            } catch (_: Exception) {
+            }
+        }
+        return null
     }
 
     override fun onConfigureWindow(win: Window, isFullscreen: Boolean, isCandidatesOnly: Boolean) {
@@ -195,6 +277,8 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
 
     override fun onDestroy() {
         super.onDestroy()
+        designObserver?.let { contentResolver.unregisterContentObserver(it) }
+        designObserver = null
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         appViewModelStore.clear()
     }

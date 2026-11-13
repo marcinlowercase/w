@@ -47,7 +47,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
@@ -173,13 +175,59 @@ fun KeyboardView(
 
         val isDark = isSystemInDarkTheme()
         val keyboardBgColor = if (isDark) Color.Black else Color.White
+        val topCornerRadiusDp = viewModel.topCornerRadiusDp.value.dp
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.Transparent)
         ) {
-            Spacer(modifier = Modifier.height(KeyboardDimens.popupHeadroom))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(KeyboardDimens.popupHeadroom)
+            ) {
+                if (topCornerRadiusDp > 0.dp) {
+                    val clampedRadiusDp = topCornerRadiusDp.coerceAtMost(KeyboardDimens.popupHeadroom)
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(clampedRadiusDp)
+                            .align(Alignment.BottomCenter)
+                    ) {
+                        val r = size.height.coerceAtMost(size.width / 2f)
+                        if (r > 0f) {
+                            val w = size.width
+                            val leftCornerPath = Path().apply {
+                                moveTo(0f, 0f)
+                                arcTo(
+                                    rect = Rect(0f, -r, 2f * r, r),
+                                    startAngleDegrees = 180f,
+                                    sweepAngleDegrees = -90f,
+                                    forceMoveTo = false
+                                )
+                                lineTo(r, r + 1f)
+                                lineTo(0f, r + 1f)
+                                close()
+                            }
+                            val rightCornerPath = Path().apply {
+                                moveTo(w, 0f)
+                                arcTo(
+                                    rect = Rect(w - 2f * r, -r, w, r),
+                                    startAngleDegrees = 0f,
+                                    sweepAngleDegrees = 90f,
+                                    forceMoveTo = false
+                                )
+                                lineTo(w - r, r + 1f)
+                                lineTo(w, r + 1f)
+                                close()
+                            }
+                            drawPath(path = leftCornerPath, color = keyboardBgColor)
+                            drawPath(path = rightCornerPath, color = keyboardBgColor)
+                        }
+                    }
+                }
+            }
 
             val dynamicBottomPadding = viewModel.bottomChinPaddingDp.value.dp
 
@@ -191,7 +239,7 @@ fun KeyboardView(
                     .padding(
                         start = KeyboardDimens.keyGap / 2,
                         end = KeyboardDimens.keyGap / 2,
-                        top = KeyboardDimens.keyGap / 2,
+                        top = (KeyboardDimens.keyGap / 2) + 8.dp,
                         bottom = 0.dp
                     )
             ) {
