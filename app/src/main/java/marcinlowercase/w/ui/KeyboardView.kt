@@ -373,7 +373,7 @@ fun KeyboardView(
                     .padding(
                         start = KeyboardDimens.keyGap / 2,
                         end = KeyboardDimens.keyGap / 2,
-                        top = (KeyboardDimens.keyGap / 2) + 8.dp,
+                        top = (KeyboardDimens.keyGap / 2) + viewModel.topExtraPaddingDp.value.dp,
                         bottom = 0.dp
                     )
             ) {

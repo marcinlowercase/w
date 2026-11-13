@@ -18,6 +18,7 @@ class KeyboardViewModel : ViewModel() {
     val shiftState = mutableStateOf(ShiftState.OFF)
     val bottomChinPaddingDp = mutableStateOf(32)
     val topCornerRadiusDp = mutableStateOf(0f)
+    val topExtraPaddingDp = mutableStateOf(8f)
     val highlightColor = mutableStateOf(Color(0xFF001FFF))
     val fontFamily = mutableStateOf<FontFamily>(FontFamily.Monospace)
     val ctrlArmed = mutableStateOf(false)

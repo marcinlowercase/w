@@ -57,13 +57,17 @@ data class BrowserDesign(
     val sharpMode: Int,
     val currentCornerRadius: Float,
     val hardwareCornerRadius: Float,
-    val padding: Float
+    val padding: Float,
+    val isMaterialYou: Boolean,
+    val highlightColor: Int
 )
 
 class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var designObserver: ContentObserver? = null
+    private var savedThemeMode = KeyboardThemeMode.SYSTEM
+    private var savedHighlightColor = Color(0xFF001FFF)
     private lateinit var preferences: KeyboardPreferences
 
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -107,7 +111,8 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         }
         serviceScope.launch {
             preferences.highlightColorLong.collect { colorVal ->
-                viewModel.highlightColor.value = Color(colorVal)
+                savedHighlightColor = Color(colorVal)
+                updateBrowserDesign()
             }
         }
         viewModel.audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -125,10 +130,8 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         }
         serviceScope.launch {
             preferences.themeMode.collect { mode ->
-                viewModel.themeMode.value = mode
-                window?.window?.let { win ->
-                    applyNavigationBarTheme(win)
-                }
+                savedThemeMode = mode
+                updateBrowserDesign()
             }
         }
         serviceScope.launch {
@@ -161,12 +164,26 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
     }
 
     private fun updateBrowserDesign() {
-        if (!viewModel.outsyncEnabled.value) {
+        val design = if (viewModel.outsyncEnabled.value) readBrowserDesign(this) else null
+        if (design != null) {
+            viewModel.topCornerRadiusDp.value = design.hardwareCornerRadius.coerceAtLeast(0f)
+            viewModel.topExtraPaddingDp.value = design.padding.coerceAtLeast(0f)
+            if (design.isMaterialYou) {
+                viewModel.themeMode.value = KeyboardThemeMode.MATERIAL
+                viewModel.highlightColor.value = savedHighlightColor
+            } else {
+                viewModel.themeMode.value = KeyboardThemeMode.BLACK
+                viewModel.highlightColor.value = Color(design.highlightColor)
+            }
+        } else {
             viewModel.topCornerRadiusDp.value = 0f
-            return
+            viewModel.topExtraPaddingDp.value = 8f
+            viewModel.themeMode.value = savedThemeMode
+            viewModel.highlightColor.value = savedHighlightColor
         }
-        val design = readBrowserDesign(this)
-        viewModel.topCornerRadiusDp.value = design?.hardwareCornerRadius?.coerceAtLeast(0f) ?: 0f
+        window?.window?.let { win ->
+            applyNavigationBarTheme(win)
+        }
     }
 
     private fun registerBrowserDesignObserver() {
@@ -206,7 +223,9 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
                             sharpMode = cursor.getInt(cursor.getColumnIndexOrThrow("sharp_mode")),
                             currentCornerRadius = cursor.getFloat(cursor.getColumnIndexOrThrow("current_corner_radius")),
                             hardwareCornerRadius = cursor.getFloat(cursor.getColumnIndexOrThrow("hardware_corner_radius")),
-                            padding = cursor.getFloat(cursor.getColumnIndexOrThrow("padding"))
+                            padding = cursor.getFloat(cursor.getColumnIndexOrThrow("padding")),
+                            isMaterialYou = cursor.getInt(cursor.getColumnIndexOrThrow("is_material_you")) == 1,
+                            highlightColor = cursor.getInt(cursor.getColumnIndexOrThrow("highlight_color"))
                         )
                     }
                 }

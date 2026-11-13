@@ -244,7 +244,7 @@ fun SettingsScreen(
                     )
                     Text(
                         text = if (browserInstalled) {
-                            "Sync top curve design with \"the browser of oo1 studio\"."
+                            "Sync top curve, padding, theme, and highlight color with \"the browser of oo1 studio\"."
                         } else {
                             "Download \"the browser of oo1 studio\" to enable \"outsync\"."
                         },
