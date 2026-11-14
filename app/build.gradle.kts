@@ -14,8 +14,8 @@ android {
         applicationId = "studio.oo1.keyboard"
         minSdk = 26
         targetSdk = 37
-        versionCode = 8
-        versionName = "0.0.6"
+        versionCode = 9
+        versionName = "0.0.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
