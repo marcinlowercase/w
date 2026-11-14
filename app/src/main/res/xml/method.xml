@@ -1,8 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <input-method xmlns:android="http://schemas.android.com/apk/res/android"
-    android:settingsActivity="marcinlowercase.w.MainActivity">
+    android:settingsActivity="marcinlowercase.w.MainActivity"
+    android:supportsSwitchingToNextInputMethod="true">
     <subtype
         android:imeSubtypeMode="keyboard"
         android:imeSubtypeLocale="en_US"
-        android:label="English (US)" />
+        android:languageTag="en-US"
+        android:label="@string/subtype_en_us" />
+    <subtype
+        android:imeSubtypeMode="keyboard"
+        android:imeSubtypeLocale="vi_VN"
+        android:languageTag="vi-VN"
+        android:imeSubtypeExtraValue="KeyboardLayout=telex"
+        android:label="@string/subtype_vi_telex" />
+    <subtype
+        android:imeSubtypeMode="keyboard"
+        android:imeSubtypeLocale="vi_VN"
+        android:languageTag="vi-VN"
+        android:imeSubtypeExtraValue="KeyboardLayout=vni"
+        android:label="@string/subtype_vi_vni" />
 </input-method>

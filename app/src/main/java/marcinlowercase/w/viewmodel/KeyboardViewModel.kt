@@ -10,6 +10,7 @@ import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
 import marcinlowercase.w.model.KeyboardThemeMode
 import marcinlowercase.w.model.PopupDirection
+import marcinlowercase.w.model.VietnameseMode
 import marcinlowercase.w.model.SecondaryBindings
 import marcinlowercase.w.model.ShiftState
 
@@ -30,6 +31,8 @@ class KeyboardViewModel : ViewModel() {
     val outsyncEnabled = mutableStateOf(true)
     val roundCornerEnabled = mutableStateOf(true)
     val themeMode = mutableStateOf(KeyboardThemeMode.SYSTEM)
+    val vietnameseMode = mutableStateOf(VietnameseMode.OFF)
+    val languageSwitchShortcut = mutableStateOf("Ctrl+Shift+q")
     var audioManager: AudioManager? = null
     private var lastShiftPressTime = 0L
 

@@ -1257,7 +1257,11 @@ fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     val spaceBg = if (isPressedDown) colors.keyPressed else colors.spaceKey
     val spaceTextColor = colors.textOnCharacter
     val cellHeight = KeyboardDimens.keyHeight + KeyboardDimens.rowGap + extraBottomPadding
-    val spaceLabel = if (isShiftOn) "SPACE" else "space"
+    val spaceLabel = when (viewModel.vietnameseMode.value) {
+        marcinlowercase.w.model.VietnameseMode.TELEX -> if (isShiftOn) "TELEX" else "telex"
+        marcinlowercase.w.model.VietnameseMode.VNI -> if (isShiftOn) "VNI" else "vni"
+        marcinlowercase.w.model.VietnameseMode.OFF -> if (isShiftOn) "SPACE" else "space"
+    }
 
     Box(
         modifier = Modifier

@@ -23,6 +23,7 @@ class KeyboardPreferences(private val context: Context) {
         val KEY_OUTSYNC_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("outsync_enabled")
         val KEY_ROUND_CORNER_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("round_corner_enabled")
         val KEY_THEME_MODE = stringPreferencesKey("keyboard_theme_mode")
+        val KEY_LANGUAGE_SWITCH_SHORTCUT = stringPreferencesKey("language_switch_shortcut")
     }
 
     val bottomPaddingDp: Flow<Int> = context.dataStore.data.map { preferences ->
@@ -103,6 +104,16 @@ class KeyboardPreferences(private val context: Context) {
     suspend fun setThemeMode(mode: KeyboardThemeMode) {
         context.dataStore.edit { preferences ->
             preferences[KEY_THEME_MODE] = mode.key
+        }
+    }
+
+    val languageSwitchShortcut: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[KEY_LANGUAGE_SWITCH_SHORTCUT] ?: "Ctrl+Shift+q"
+    }
+
+    suspend fun setLanguageSwitchShortcut(shortcut: String) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_LANGUAGE_SWITCH_SHORTCUT] = shortcut
         }
     }
 

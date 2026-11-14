@@ -143,6 +143,8 @@ fun SettingsScreen(
     val outsyncEnabledState = preferences.outsyncEnabled.collectAsState(initial = true)
     val roundCornerEnabledState = preferences.roundCornerEnabled.collectAsState(initial = true)
     val themeModeState = preferences.themeMode.collectAsState(initial = KeyboardThemeMode.SYSTEM)
+    val languageShortcutState = preferences.languageSwitchShortcut.collectAsState(initial = "Ctrl+Shift+q")
+    var shortcutInput by remember(languageShortcutState.value) { mutableStateOf(languageShortcutState.value) }
     var browserInstalled by remember { mutableStateOf(isBrowserInstalled(context)) }
     var testInputText by remember { mutableStateOf("") }
 
@@ -317,6 +319,40 @@ fun SettingsScreen(
                 }
             }
         )
+
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Language Switch Shortcut",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "Keyboard shortcut to cycle languages (default: Ctrl+Shift+q). Supports combinations like Ctrl+Shift+q, Ctrl+Space, or Alt+Shift+z.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = shortcutInput,
+                    onValueChange = { newVal ->
+                        shortcutInput = newVal
+                        coroutineScope.launch {
+                            preferences.setLanguageSwitchShortcut(newVal.ifBlank { "Ctrl+Shift+q" })
+                        }
+                    },
+                    placeholder = { Text("Ctrl+Shift+q") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        }
 
         ColorPickerCard(
             currentColorLong = highlightColorState.value,
@@ -547,15 +583,35 @@ fun StatusCard(context: Context) {
                 ) {
                     Text("System Settings")
                 }
-                Button(
+                OutlinedButton(
                     onClick = {
                         val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                        imm.showInputMethodPicker()
+                        val imId = imm.enabledInputMethodList.find { it.packageName == context.packageName }?.id
+                        val intent = Intent(Settings.ACTION_INPUT_METHOD_SUBTYPE_SETTINGS).apply {
+                            if (imId != null) {
+                                putExtra(Settings.EXTRA_INPUT_METHOD_ID, imId)
+                            }
+                        }
+                        try {
+                            context.startActivity(intent)
+                        } catch (_: Exception) {
+                            context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+                        }
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Switch Active")
+                    Text("Input Languages")
                 }
+            }
+
+            Button(
+                onClick = {
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.showInputMethodPicker()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Switch Active")
             }
         }
     }

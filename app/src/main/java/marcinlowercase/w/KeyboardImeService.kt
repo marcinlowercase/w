@@ -13,6 +13,8 @@ import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.view.inputmethod.InputMethodSubtype
 import android.view.View
 import android.view.Window
 import android.view.inputmethod.ExtractedTextRequest
@@ -49,6 +51,8 @@ import marcinlowercase.w.model.KeyType
 import marcinlowercase.w.model.KeyboardLayoutConfig
 import marcinlowercase.w.model.ShiftState
 import marcinlowercase.w.ui.KeyboardDimens
+import marcinlowercase.w.model.VietnameseEngine
+import marcinlowercase.w.model.VietnameseMode
 import marcinlowercase.w.ui.KeyboardView
 import marcinlowercase.w.viewmodel.KeyboardViewModel
 import java.io.File
@@ -69,6 +73,7 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
     private var savedThemeMode = KeyboardThemeMode.SYSTEM
     private var savedHighlightColor = Color(0xFF001FFF)
     private var currentTargetPackageName: String? = null
+    private var vietnameseMode = VietnameseMode.OFF
     private lateinit var preferences: KeyboardPreferences
 
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -84,7 +89,79 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         currentSelStart = attribute?.initialSelStart ?: 0
         currentSelEnd = attribute?.initialSelEnd ?: 0
         currentTargetPackageName = attribute?.packageName
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        updateSubtypeMode(imm?.currentInputMethodSubtype)
         updateBrowserDesign()
+    }
+
+    override fun onCurrentInputMethodSubtypeChanged(newSubtype: InputMethodSubtype) {
+        super.onCurrentInputMethodSubtypeChanged(newSubtype)
+        updateSubtypeMode(newSubtype)
+    }
+
+    private fun updateSubtypeMode(subtype: InputMethodSubtype?) {
+        val tag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            subtype?.languageTag?.ifEmpty { null }
+        } else {
+            null
+        } ?: subtype?.locale ?: ""
+        val extra = subtype?.extraValue ?: ""
+        vietnameseMode = when {
+            tag.startsWith("vi", ignoreCase = true) && extra.contains("vni", ignoreCase = true) -> VietnameseMode.VNI
+            tag.startsWith("vi", ignoreCase = true) -> VietnameseMode.TELEX
+            else -> VietnameseMode.OFF
+        }
+        viewModel.vietnameseMode.value = vietnameseMode
+    }
+
+    private fun matchesShortcut(shortcutStr: String, key: KeyDefinition, metaState: Int): Boolean {
+        val parts = shortcutStr.uppercase().split("+").map { it.trim() }.filter { it.isNotEmpty() }
+        if (parts.isEmpty()) return false
+
+        val reqCtrl = parts.contains("CTRL")
+        val reqAlt = parts.contains("ALT")
+        val reqShift = parts.contains("SHIFT")
+
+        val isCtrl = (metaState and KeyEvent.META_CTRL_ON) != 0
+        val isAlt = (metaState and KeyEvent.META_ALT_ON) != 0
+        val isShift = (metaState and KeyEvent.META_SHIFT_ON) != 0
+
+        if (reqCtrl != isCtrl || reqAlt != isAlt || reqShift != isShift) {
+            return false
+        }
+
+        val keyParts = parts.filter { it !in listOf("CTRL", "ALT", "SHIFT") }
+        if (keyParts.isEmpty()) return false
+
+        val expectedKey = keyParts.first()
+        return when {
+            expectedKey == "SPACE" -> key.type == KeyType.SPACE || key.id == "space"
+            expectedKey == "ENTER" -> key.type == KeyType.ENTER || key.id == "enter"
+            expectedKey == "TAB" -> key.id == "tab"
+            expectedKey == "ESC" -> key.id == "esc"
+            expectedKey.length == 1 -> key.id.equals(expectedKey, ignoreCase = true) ||
+                    key.primaryChar.equals(expectedKey, ignoreCase = true)
+            else -> key.id.equals(expectedKey, ignoreCase = true)
+        }
+    }
+
+    private fun cycleNextLanguage() {
+        val switched = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            switchToNextInputMethod(true)
+        } else {
+            @Suppress("DEPRECATION")
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.switchToNextInputMethod(window?.window?.attributes?.token, true) ?: false
+        }
+        if (!switched) {
+            val nextMode = when (viewModel.vietnameseMode.value) {
+                VietnameseMode.OFF -> VietnameseMode.TELEX
+                VietnameseMode.TELEX -> VietnameseMode.VNI
+                VietnameseMode.VNI -> VietnameseMode.OFF
+            }
+            viewModel.vietnameseMode.value = nextMode
+            vietnameseMode = nextMode
+        }
     }
 
     override fun onUpdateSelection(
@@ -144,6 +221,11 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             }
         }
         serviceScope.launch {
+            preferences.languageSwitchShortcut.collect { shortcut ->
+                viewModel.languageSwitchShortcut.value = shortcut
+            }
+        }
+        serviceScope.launch {
             preferences.customFontPath.collect { path ->
                 viewModel.fontFamily.value = loadFontFamilyFromPath(path)
             }
@@ -176,7 +258,7 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
     }
 
     private fun updateBrowserDesign() {
-        val design = readBrowserDesign(this)
+        val design = readBrowserDesign(this, currentTargetPackageName)
         val isTargetBrowser = currentTargetPackageName in listOf("studio.oo1.browser", "marcinlowercase.a")
         val isOutsyncActive = viewModel.outsyncEnabled.value && isTargetBrowser && design != null
 
@@ -230,11 +312,15 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         }
     }
 
-    private fun readBrowserDesign(context: Context): BrowserDesign? {
-        val authorities = listOf(
-            "studio.oo1.browser.settingsprovider",
-            "marcinlowercase.a.settingsprovider"
-        )
+    private fun readBrowserDesign(context: Context, targetPackageName: String? = null): BrowserDesign? {
+        val authorities = when (targetPackageName) {
+            "studio.oo1.browser" -> listOf("studio.oo1.browser.settingsprovider")
+            "marcinlowercase.a" -> listOf("marcinlowercase.a.settingsprovider")
+            else -> listOf(
+                "studio.oo1.browser.settingsprovider",
+                "marcinlowercase.a.settingsprovider"
+            )
+        }
         for (authority in authorities) {
             val uri = Uri.parse("content://$authority/design")
             try {
@@ -400,6 +486,11 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             return false
         }
 
+        if (matchesShortcut(viewModel.languageSwitchShortcut.value, key, metaState)) {
+            cycleNextLanguage()
+            return true
+        }
+
         val isCtrl = (metaState and KeyEvent.META_CTRL_ON) != 0
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val maxSafeChars = 1000000
@@ -497,6 +588,18 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
 
         return when (key.type) {
             KeyType.CHARACTER -> {
+                if (vietnameseMode != VietnameseMode.OFF && key.primaryChar.length == 1) {
+                    val before = ic.getTextBeforeCursor(40, 0)?.toString() ?: ""
+                    val word = before.takeLastWhile { it.isLetter() || it.isDigit() }
+                    if (word.isNotEmpty()) {
+                        val transformed = VietnameseEngine.transform(word, key.primaryChar[0], vietnameseMode)
+                        if (transformed != null) {
+                            ic.deleteSurroundingText(word.length, 0)
+                            ic.commitText(transformed, 1)
+                            return true
+                        }
+                    }
+                }
                 commitText(key.primaryChar)
                 true
             }
