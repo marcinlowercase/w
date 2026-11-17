@@ -84,11 +84,17 @@ object VietnameseEngine {
             if (toneApplied != null) return toneApplied
         }
 
+        val vowelIndices = getVowelIndices(word)
+
         if (lc == 'w') {
-            val uIdx = word.indexOfAny(charArrayOf('u', 'U', 'ư', 'Ư'))
-            val oIdx = word.indexOfAny(charArrayOf('o', 'O', 'ơ', 'Ơ'))
-            if (uIdx >= 0 && oIdx == uIdx + 1) {
-                val uMeta = parseVowel(word[uIdx])
+            val uoIdx = vowelIndices.firstOrNull { idx ->
+                parseVowel(word[idx])?.base == 'u' &&
+                    (idx + 1) in vowelIndices &&
+                    parseVowel(word[idx + 1])?.base == 'o'
+            }
+            if (uoIdx != null) {
+                val oIdx = uoIdx + 1
+                val uMeta = parseVowel(word[uoIdx])
                 val oMeta = parseVowel(word[oIdx])
                 if (uMeta != null && oMeta != null) {
                     val hasTrailingChars = oIdx < word.lastIndex
@@ -97,77 +103,72 @@ object VietnameseEngine {
                         val targetHat = if (isBothHorn) 0 else 2
                         val newU = composeVowel('u', targetHat, uMeta.tone, uMeta.isUpper)
                         val newO = composeVowel('o', targetHat, oMeta.tone, oMeta.isUpper)
-                        val replaced = word.substring(0, uIdx) + newU + newO + word.substring(oIdx + 1)
-                        return if (isBothHorn) replaced + inputChar else replaced
+                        val replaced = word.substring(0, uoIdx) + newU + newO + word.substring(oIdx + 1)
+                        val normalized = normalizeTonePosition(replaced)
+                        return if (isBothHorn) normalized + inputChar else normalized
                     } else {
                         val isHorn = oMeta.hat == 2
                         val targetHat = if (isHorn) 0 else 2
                         val newO = composeVowel('o', targetHat, oMeta.tone, oMeta.isUpper)
                         val replaced = word.substring(0, oIdx) + newO
-                        return if (isHorn) replaced + inputChar else replaced
+                        val normalized = normalizeTonePosition(replaced)
+                        return if (isHorn) normalized + inputChar else normalized
                     }
                 }
             }
 
-            val aIdx = word.indexOfAny(charArrayOf('a', 'A'))
-            if (uIdx >= 0 && aIdx == uIdx + 1) {
-                val uMeta = parseVowel(word[uIdx])
+            val uaIdx = vowelIndices.firstOrNull { idx ->
+                parseVowel(word[idx])?.base == 'u' &&
+                    (idx + 1) in vowelIndices &&
+                    parseVowel(word[idx + 1])?.base == 'a'
+            }
+            if (uaIdx != null) {
+                val uMeta = parseVowel(word[uaIdx])
                 if (uMeta != null) {
                     val isHorn = uMeta.hat == 2
                     val targetHat = if (isHorn) 0 else 2
                     val newU = composeVowel('u', targetHat, uMeta.tone, uMeta.isUpper)
-                    val replaced = word.substring(0, uIdx) + newU + word.substring(uIdx + 1)
-                    return if (isHorn) replaced + inputChar else replaced
+                    val replaced = word.substring(0, uaIdx) + newU + word.substring(uaIdx + 1)
+                    val normalized = normalizeTonePosition(replaced)
+                    return if (isHorn) normalized + inputChar else normalized
                 }
             }
 
-            val targetIdx = word.lastIndexOfAny(charArrayOf('u', 'U', 'ư', 'Ư', 'o', 'O', 'ơ', 'Ơ', 'a', 'A', 'ă', 'Ă'))
-            if (targetIdx >= 0) {
+            val targetIdx = vowelIndices.lastOrNull { idx ->
+                val meta = parseVowel(word[idx])
+                meta != null && (
+                    ((meta.base == 'u' || meta.base == 'o') && (meta.hat == 0 || meta.hat == 2)) ||
+                        (meta.base == 'a' && (meta.hat == 0 || meta.hat == 3))
+                    )
+            }
+            if (targetIdx != null) {
                 val meta = parseVowel(word[targetIdx])
                 if (meta != null) {
-                    when (meta.base) {
-                        'u' -> {
-                            val isHorn = meta.hat == 2
-                            val targetHat = if (isHorn) 0 else 2
-                            val newChar = composeVowel('u', targetHat, meta.tone, meta.isUpper)
-                            val replaced = word.substring(0, targetIdx) + newChar + word.substring(targetIdx + 1)
-                            return if (isHorn) replaced + inputChar else replaced
-                        }
-                        'o' -> {
-                            val isHorn = meta.hat == 2
-                            val targetHat = if (isHorn) 0 else 2
-                            val newChar = composeVowel('o', targetHat, meta.tone, meta.isUpper)
-                            val replaced = word.substring(0, targetIdx) + newChar + word.substring(targetIdx + 1)
-                            return if (isHorn) replaced + inputChar else replaced
-                        }
-                        'a' -> {
-                            val isBreve = meta.hat == 3
-                            val targetHat = if (isBreve) 0 else 3
-                            val newChar = composeVowel('a', targetHat, meta.tone, meta.isUpper)
-                            val replaced = word.substring(0, targetIdx) + newChar + word.substring(targetIdx + 1)
-                            return if (isBreve) replaced + inputChar else replaced
-                        }
-                    }
+                    val expectedHat = if (meta.base == 'a') 3 else 2
+                    val isModified = meta.hat == expectedHat
+                    val targetHat = if (isModified) 0 else expectedHat
+                    val newChar = composeVowel(meta.base, targetHat, meta.tone, meta.isUpper)
+                    val replaced = word.substring(0, targetIdx) + newChar + word.substring(targetIdx + 1)
+                    val normalized = normalizeTonePosition(replaced)
+                    return if (isModified) normalized + inputChar else normalized
                 }
             }
         }
 
         if (lc == 'a' || lc == 'e' || lc == 'o') {
-            val targetChars = when (lc) {
-                'a' -> charArrayOf('a', 'A', 'â', 'Â')
-                'e' -> charArrayOf('e', 'E', 'ê', 'Ê')
-                'o' -> charArrayOf('o', 'O', 'ô', 'Ô')
-                else -> charArrayOf()
+            val targetIdx = vowelIndices.lastOrNull { idx ->
+                val meta = parseVowel(word[idx])
+                meta != null && meta.base == lc && (meta.hat == 0 || meta.hat == 1)
             }
-            val targetIdx = word.lastIndexOfAny(targetChars)
-            if (targetIdx >= 0) {
+            if (targetIdx != null) {
                 val meta = parseVowel(word[targetIdx])
-                if (meta != null && meta.base == lc) {
+                if (meta != null) {
                     val isCircumflex = meta.hat == 1
                     val targetHat = if (isCircumflex) 0 else 1
                     val newChar = composeVowel(meta.base, targetHat, meta.tone, meta.isUpper)
                     val replaced = word.substring(0, targetIdx) + newChar + word.substring(targetIdx + 1)
-                    return if (isCircumflex) replaced + inputChar else replaced
+                    val normalized = normalizeTonePosition(replaced)
+                    return if (isCircumflex) normalized + inputChar else normalized
                 }
             }
         }
@@ -208,22 +209,31 @@ object VietnameseEngine {
             if (toneApplied != null) return toneApplied
         }
 
+        val vowelIndices = getVowelIndices(word)
+
         when (inputChar) {
             '6' -> {
-                val idx = word.lastIndexOfAny(charArrayOf('a', 'A', 'e', 'E', 'o', 'O', 'â', 'Â', 'ê', 'Ê', 'ô', 'Ô'))
-                if (idx >= 0) {
+                val idx = vowelIndices.lastOrNull { i ->
+                    val meta = parseVowel(word[i])
+                    meta != null && (meta.base == 'a' || meta.base == 'e' || meta.base == 'o') && (meta.hat == 0 || meta.hat == 1)
+                }
+                if (idx != null) {
                     val meta = parseVowel(word[idx]) ?: return null
                     val newHat = if (meta.hat == 1) 0 else 1
                     val newChar = composeVowel(meta.base, newHat, meta.tone, meta.isUpper)
-                    return if (newHat == 0) word.substring(0, idx) + newChar + word.substring(idx + 1) + "6"
-                    else word.substring(0, idx) + newChar + word.substring(idx + 1)
+                    val replaced = normalizeTonePosition(word.substring(0, idx) + newChar + word.substring(idx + 1))
+                    return if (newHat == 0) replaced + "6" else replaced
                 }
             }
             '7' -> {
-                val uIdx = word.indexOfAny(charArrayOf('u', 'U', 'ư', 'Ư'))
-                val oIdx = word.indexOfAny(charArrayOf('o', 'O', 'ơ', 'Ơ'))
-                if (uIdx >= 0 && oIdx == uIdx + 1) {
-                    val uMeta = parseVowel(word[uIdx])
+                val uoIdx = vowelIndices.firstOrNull { idx ->
+                    parseVowel(word[idx])?.base == 'u' &&
+                        (idx + 1) in vowelIndices &&
+                        parseVowel(word[idx + 1])?.base == 'o'
+                }
+                if (uoIdx != null) {
+                    val oIdx = uoIdx + 1
+                    val uMeta = parseVowel(word[uoIdx])
                     val oMeta = parseVowel(word[oIdx])
                     if (uMeta != null && oMeta != null) {
                         val hasTrailingChars = oIdx < word.lastIndex
@@ -232,34 +242,54 @@ object VietnameseEngine {
                             val targetHat = if (isBothHorn) 0 else 2
                             val newU = composeVowel('u', targetHat, uMeta.tone, uMeta.isUpper)
                             val newO = composeVowel('o', targetHat, oMeta.tone, oMeta.isUpper)
-                            val replaced = word.substring(0, uIdx) + newU + newO + word.substring(oIdx + 1)
+                            val replaced = normalizeTonePosition(word.substring(0, uoIdx) + newU + newO + word.substring(oIdx + 1))
                             return if (isBothHorn) replaced + "7" else replaced
                         } else {
                             val isHorn = oMeta.hat == 2
                             val targetHat = if (isHorn) 0 else 2
                             val newO = composeVowel('o', targetHat, oMeta.tone, oMeta.isUpper)
-                            val replaced = word.substring(0, oIdx) + newO
+                            val replaced = normalizeTonePosition(word.substring(0, oIdx) + newO)
                             return if (isHorn) replaced + "7" else replaced
                         }
                     }
                 }
-                val idx = word.lastIndexOfAny(charArrayOf('o', 'O', 'u', 'U', 'ơ', 'Ơ', 'ư', 'Ư'))
-                if (idx >= 0) {
+
+                val uaIdx = vowelIndices.firstOrNull { idx ->
+                    parseVowel(word[idx])?.base == 'u' &&
+                        (idx + 1) in vowelIndices &&
+                        parseVowel(word[idx + 1])?.base == 'a'
+                }
+                if (uaIdx != null) {
+                    val uMeta = parseVowel(word[uaIdx]) ?: return null
+                    val newHat = if (uMeta.hat == 2) 0 else 2
+                    val newU = composeVowel('u', newHat, uMeta.tone, uMeta.isUpper)
+                    val replaced = normalizeTonePosition(word.substring(0, uaIdx) + newU + word.substring(uaIdx + 1))
+                    return if (newHat == 0) replaced + "7" else replaced
+                }
+
+                val idx = vowelIndices.lastOrNull { i ->
+                    val meta = parseVowel(word[i])
+                    meta != null && (meta.base == 'o' || meta.base == 'u') && (meta.hat == 0 || meta.hat == 2)
+                }
+                if (idx != null) {
                     val meta = parseVowel(word[idx]) ?: return null
                     val newHat = if (meta.hat == 2) 0 else 2
                     val newChar = composeVowel(meta.base, newHat, meta.tone, meta.isUpper)
-                    return if (newHat == 0) word.substring(0, idx) + newChar + word.substring(idx + 1) + "7"
-                    else word.substring(0, idx) + newChar + word.substring(idx + 1)
+                    val replaced = normalizeTonePosition(word.substring(0, idx) + newChar + word.substring(idx + 1))
+                    return if (newHat == 0) replaced + "7" else replaced
                 }
             }
             '8' -> {
-                val idx = word.lastIndexOfAny(charArrayOf('a', 'A', 'ă', 'Ă'))
-                if (idx >= 0) {
+                val idx = vowelIndices.lastOrNull { i ->
+                    val meta = parseVowel(word[i])
+                    meta != null && meta.base == 'a' && (meta.hat == 0 || meta.hat == 3)
+                }
+                if (idx != null) {
                     val meta = parseVowel(word[idx]) ?: return null
                     val newHat = if (meta.hat == 3) 0 else 3
                     val newChar = composeVowel('a', newHat, meta.tone, meta.isUpper)
-                    return if (newHat == 0) word.substring(0, idx) + newChar + word.substring(idx + 1) + "8"
-                    else word.substring(0, idx) + newChar + word.substring(idx + 1)
+                    val replaced = normalizeTonePosition(word.substring(0, idx) + newChar + word.substring(idx + 1))
+                    return if (newHat == 0) replaced + "8" else replaced
                 }
             }
         }
@@ -334,8 +364,46 @@ object VietnameseEngine {
         return sb.toString()
     }
 
+    private fun normalizeTonePosition(word: String): String {
+        val vowelIndices = getVowelIndices(word)
+        if (vowelIndices.size <= 1) return word
+
+        val existingTone = vowelIndices.mapNotNull { parseVowel(word[it])?.tone }.firstOrNull { it > 0 } ?: 0
+        if (existingTone == 0) return word
+
+        val targetIndex = resolveToneVowelIndex(word, vowelIndices)
+        val sb = StringBuilder()
+        for (i in word.indices) {
+            val ch = word[i]
+            if (i == targetIndex) {
+                val meta = parseVowel(ch)
+                if (meta != null) {
+                    sb.append(composeVowel(meta.base, meta.hat, existingTone, meta.isUpper))
+                } else {
+                    sb.append(ch)
+                }
+            } else if (i in vowelIndices) {
+                val meta = parseVowel(ch)
+                if (meta != null) {
+                    sb.append(composeVowel(meta.base, meta.hat, 0, meta.isUpper))
+                } else {
+                    sb.append(ch)
+                }
+            } else {
+                sb.append(ch)
+            }
+        }
+        return sb.toString()
+    }
+
     private fun resolveToneVowelIndex(word: String, vowelIndices: List<Int>): Int {
         if (vowelIndices.size == 1) return vowelIndices[0]
+
+        val lastHatIndex = vowelIndices.lastOrNull { idx ->
+            val hat = parseVowel(word[idx])?.hat ?: 0
+            hat != 0
+        }
+        if (lastHatIndex != null) return lastHatIndex
 
         if (vowelIndices.size == 2) {
             val hasConsonantAfter = vowelIndices.last() < word.lastIndex
@@ -344,12 +412,18 @@ object VietnameseEngine {
             val firstMeta = parseVowel(word[vowelIndices[0]])
             val secondMeta = parseVowel(word[vowelIndices[1]])
 
-            if (firstMeta != null && (firstMeta.hat == 1 || firstMeta.hat == 2)) return vowelIndices[0]
-            if (secondMeta != null && (secondMeta.hat == 1 || secondMeta.hat == 2)) return vowelIndices[1]
-
             val pair = "${firstMeta?.base}${secondMeta?.base}"
             if (pair == "oa" || pair == "oe" || pair == "uy") return vowelIndices[1]
             return vowelIndices[0]
+        }
+
+        if (vowelIndices.size == 3) {
+            val firstBase = parseVowel(word[vowelIndices[0]])?.base
+            val secondBase = parseVowel(word[vowelIndices[1]])?.base
+            val thirdBase = parseVowel(word[vowelIndices[2]])?.base
+            if (firstBase == 'u' && secondBase == 'y' && thirdBase == 'e') {
+                return vowelIndices[2]
+            }
         }
 
         return vowelIndices[1]
