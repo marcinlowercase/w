@@ -492,11 +492,13 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         }
 
         val isCtrl = (metaState and KeyEvent.META_CTRL_ON) != 0
+        val isAlt = (metaState and KeyEvent.META_ALT_ON) != 0
+        val isShift = (metaState and KeyEvent.META_SHIFT_ON) != 0
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val maxSafeChars = 1000000
         val ipcChunkSize = 40000
 
-        if (isCtrl && key.type == KeyType.CHARACTER) {
+        if (isCtrl && !isAlt && !isShift && key.type == KeyType.CHARACTER) {
             when (key.primaryChar.lowercase()) {
                 "c" -> {
                     val copied = ic.performContextMenuAction(android.R.id.copy)
