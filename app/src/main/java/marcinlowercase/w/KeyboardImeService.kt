@@ -611,7 +611,23 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             }
             KeyType.BACKSPACE -> false
             KeyType.ENTER -> {
-                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+                val ei = currentInputEditorInfo
+                val imeOptions = ei?.imeOptions ?: 0
+                val action = imeOptions and EditorInfo.IME_MASK_ACTION
+                val noEnterAction = (imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0
+
+                val handledByAction = if (!noEnterAction &&
+                    action != EditorInfo.IME_ACTION_NONE &&
+                    action != EditorInfo.IME_ACTION_UNSPECIFIED
+                ) {
+                    ic.performEditorAction(action)
+                } else {
+                    false
+                }
+
+                if (!handledByAction) {
+                    sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER)
+                }
                 true
             }
             KeyType.MODIFIER -> {
