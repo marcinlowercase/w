@@ -24,6 +24,8 @@ class KeyboardPreferences(private val context: Context) {
         val KEY_ROUND_CORNER_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("round_corner_enabled")
         val KEY_THEME_MODE = stringPreferencesKey("keyboard_theme_mode")
         val KEY_LANGUAGE_SWITCH_SHORTCUT = stringPreferencesKey("language_switch_shortcut")
+        val KEY_PORTRAIT_KEY_HEIGHT = intPreferencesKey("portrait_key_height_dp")
+        val KEY_LANDSCAPE_KEY_HEIGHT = intPreferencesKey("landscape_key_height_dp")
     }
 
     val bottomPaddingDp: Flow<Int> = context.dataStore.data.map { preferences ->
@@ -33,6 +35,26 @@ class KeyboardPreferences(private val context: Context) {
     suspend fun setBottomPaddingDp(paddingDp: Int) {
         context.dataStore.edit { preferences ->
             preferences[KEY_BOTTOM_PADDING] = paddingDp
+        }
+    }
+
+    val portraitKeyHeightDp: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[KEY_PORTRAIT_KEY_HEIGHT] ?: 53
+    }
+
+    suspend fun setPortraitKeyHeightDp(heightDp: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_PORTRAIT_KEY_HEIGHT] = heightDp
+        }
+    }
+
+    val landscapeKeyHeightDp: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[KEY_LANDSCAPE_KEY_HEIGHT] ?: 38
+    }
+
+    suspend fun setLandscapeKeyHeightDp(heightDp: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_LANDSCAPE_KEY_HEIGHT] = heightDp
         }
     }
 

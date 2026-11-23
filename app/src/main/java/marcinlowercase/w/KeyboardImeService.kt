@@ -190,6 +190,16 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             }
         }
         serviceScope.launch {
+            preferences.portraitKeyHeightDp.collect { height ->
+                viewModel.portraitKeyHeightDp.value = height
+            }
+        }
+        serviceScope.launch {
+            preferences.landscapeKeyHeightDp.collect { height ->
+                viewModel.landscapeKeyHeightDp.value = height
+            }
+        }
+        serviceScope.launch {
             preferences.highlightColorLong.collect { colorVal ->
                 savedHighlightColor = Color(colorVal)
                 updateBrowserDesign()
@@ -393,10 +403,16 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         }
     }
 
+    override fun onEvaluateFullscreenMode(): Boolean = false
+
     override fun onComputeInsets(outInsets: Insets) {
         super.onComputeInsets(outInsets)
         val density = resources.displayMetrics.density
-        val headroomPx = (KeyboardDimens.popupHeadroom.value * density).toInt()
+        val headroomPx = if (KeyboardDimens.measuredHeadroomPx >= 0) {
+            KeyboardDimens.measuredHeadroomPx
+        } else {
+            (KeyboardDimens.popupHeadroom.value * density).toInt()
+        }
         outInsets.contentTopInsets = headroomPx
         outInsets.visibleTopInsets = headroomPx
         outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_CONTENT

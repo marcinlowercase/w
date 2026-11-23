@@ -18,6 +18,8 @@ class KeyboardViewModel : ViewModel() {
     val layoutConfig = mutableStateOf(DefaultLayout.create())
     val shiftState = mutableStateOf(ShiftState.OFF)
     val bottomChinPaddingDp = mutableStateOf(32)
+    val portraitKeyHeightDp = mutableStateOf(53)
+    val landscapeKeyHeightDp = mutableStateOf(38)
     val topCornerRadiusDp = mutableStateOf(0f)
     val topExtraPaddingDp = mutableStateOf(8f)
     val highlightColor = mutableStateOf(Color(0xFF001FFF))
@@ -133,6 +135,20 @@ class KeyboardViewModel : ViewModel() {
         }
     }
 
+    fun armModifiers(modifiers: Set<String>) {
+        if ("ctrl" in modifiers) {
+            ctrlArmed.value = true
+            ctrlShiftArmed.value = false
+        }
+        if ("alt" in modifiers) {
+            altArmed.value = true
+            altShiftArmed.value = false
+        }
+        if ("shift" in modifiers && shiftState.value == ShiftState.OFF) {
+            shiftState.value = ShiftState.SHIFTED
+        }
+    }
+
     private fun isMacroCommand(text: String): Boolean {
         val upper = text.uppercase().trim()
         return upper.contains("CTRL+") || upper.contains("ALT+") || upper.contains("SHIFT+")
@@ -195,6 +211,7 @@ class KeyboardViewModel : ViewModel() {
             metaState = metaState or android.view.KeyEvent.META_SHIFT_ON or android.view.KeyEvent.META_SHIFT_LEFT_ON
         }
 
+        val hadCtrlOrAlt = ctrlArmed.value || altArmed.value
         val resolved = key.copy(primaryChar = resolveDisplayedChar(key))
         val handled = onKeyPressHandler?.invoke(resolved, metaState) ?: false
 
@@ -206,7 +223,7 @@ class KeyboardViewModel : ViewModel() {
             altArmed.value = false
             altShiftArmed.value = false
         }
-        if ((key.type == KeyType.CHARACTER || key.type == KeyType.BACKSPACE || key.type == KeyType.SPACE || key.id == "tab" || key.id == "esc") && shiftState.value == ShiftState.SHIFTED) {
+        if ((key.type == KeyType.CHARACTER || key.type == KeyType.BACKSPACE || key.type == KeyType.SPACE || key.id == "tab" || key.id == "esc" || (key.type == KeyType.ENTER && hadCtrlOrAlt)) && shiftState.value == ShiftState.SHIFTED) {
             shiftState.value = ShiftState.OFF
         }
 

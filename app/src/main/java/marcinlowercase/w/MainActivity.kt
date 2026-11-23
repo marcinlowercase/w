@@ -1,5 +1,6 @@
 package marcinlowercase.w
 
+import android.app.Activity
 import android.content.ClipData
 import androidx.compose.runtime.DisposableEffect
 import android.content.ClipboardManager
@@ -137,6 +138,8 @@ fun SettingsScreen(
     val coroutineScope = rememberCoroutineScope()
     val preferences = remember { KeyboardPreferences(context) }
     val bottomPaddingState = preferences.bottomPaddingDp.collectAsState(initial = 24)
+    val portraitKeyHeightState = preferences.portraitKeyHeightDp.collectAsState(initial = 53)
+    val landscapeKeyHeightState = preferences.landscapeKeyHeightDp.collectAsState(initial = 38)
     val highlightColorState = preferences.highlightColorLong.collectAsState(initial = 0xFF001FFFL)
     val customFontNameState = preferences.customFontName.collectAsState(initial = null)
     val soundEnabledState = preferences.soundEnabled.collectAsState(initial = true)
@@ -162,8 +165,9 @@ fun SettingsScreen(
     }
 
     val fontPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val uri = if (result.resultCode == Activity.RESULT_OK) result.data?.data else null
         if (uri != null) {
             coroutineScope.launch {
                 runCatching {
@@ -173,7 +177,7 @@ fun SettingsScreen(
                             input.copyTo(output)
                         }
                     }
-                    val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "Custom Font"
+                    val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "custom font"
                     preferences.setCustomFont(fontFile.absolutePath, fileName)
                 }
             }
@@ -407,7 +411,11 @@ fun SettingsScreen(
                 ) {
                     FilledTonalButton(
                         onClick = {
-                            fontPickerLauncher.launch(arrayOf("*/*"))
+                            val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                                type = "*/*"
+                            }
+                            fontPickerLauncher.launch(Intent.createChooser(intent, "select font file"))
                         },
                         modifier = Modifier.weight(1f)
                     ) {
@@ -478,6 +486,64 @@ fun SettingsScreen(
                         }
                     },
                     valueRange = 0f..64f,
+                    steps = 31
+                )
+
+                val activeHeightAccent = Color(highlightColorState.value)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "portrait key height",
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "${portraitKeyHeightState.value} dp",
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        color = activeHeightAccent
+                    )
+                }
+
+                Slider(
+                    value = portraitKeyHeightState.value.toFloat(),
+                    onValueChange = { newValue ->
+                        coroutineScope.launch {
+                            preferences.setPortraitKeyHeightDp(newValue.toInt())
+                        }
+                    },
+                    valueRange = 36f..72f,
+                    steps = 35
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "landscape key height",
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "${landscapeKeyHeightState.value} dp",
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        color = activeHeightAccent
+                    )
+                }
+
+                Slider(
+                    value = landscapeKeyHeightState.value.toFloat(),
+                    onValueChange = { newValue ->
+                        coroutineScope.launch {
+                            preferences.setLandscapeKeyHeightDp(newValue.toInt())
+                        }
+                    },
+                    valueRange = 28f..60f,
                     steps = 31
                 )
             }

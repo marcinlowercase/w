@@ -1,6 +1,7 @@
 package marcinlowercase.w.ui
 
-import androidx.compose.ui.graphics.vector.PathParser
+import android.content.res.Configuration
+import android.os.Build
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -32,7 +33,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
-import android.os.Build
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,8 +40,6 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.ui.platform.LocalContext
-import marcinlowercase.w.model.KeyboardThemeMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -62,19 +60,21 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -84,6 +84,7 @@ import kotlinx.coroutines.launch
 import marcinlowercase.w.R
 import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
+import marcinlowercase.w.model.KeyboardThemeMode
 import marcinlowercase.w.model.PopupDirection
 import marcinlowercase.w.model.SecondaryBindings
 import kotlin.time.Duration.Companion.milliseconds
@@ -95,6 +96,9 @@ object KeyboardDimens {
     val keyGap = 4.dp
     val ribbonHeight = 38.dp
     val keyCornerRadius = 12.dp
+
+    @Volatile
+    var measuredHeadroomPx: Int = -1
 }
 
 data class KeyboardColors(
@@ -121,6 +125,14 @@ val LocalKeyboardViewModel = staticCompositionLocalOf<marcinlowercase.w.viewmode
 
 val LocalKeyboardColors = staticCompositionLocalOf<KeyboardColors> {
     error("No KeyboardColors provided")
+}
+
+val LocalKeyHeight = staticCompositionLocalOf<Dp> {
+    KeyboardDimens.keyHeight
+}
+
+val LocalModifierBounds = staticCompositionLocalOf<MutableMap<String, Rect>> {
+    mutableMapOf()
 }
 
 @Composable
@@ -228,10 +240,10 @@ fun isSvgOrPath(text: String?): Boolean {
     if (text.isNullOrBlank()) return false
     val trimmed = text.trim()
     return trimmed.startsWith("<svg", ignoreCase = true) ||
-        trimmed.startsWith("<path", ignoreCase = true) ||
-        trimmed.contains(" d=\"", ignoreCase = true) ||
-        trimmed.contains(" d='", ignoreCase = true) ||
-        (trimmed.length > 2 && (trimmed.startsWith("M") || trimmed.startsWith("m")) && trimmed.any { it.isDigit() })
+            trimmed.startsWith("<path", ignoreCase = true) ||
+            trimmed.contains(" d=\"", ignoreCase = true) ||
+            trimmed.contains(" d='", ignoreCase = true) ||
+            (trimmed.length > 2 && (trimmed.startsWith("M") || trimmed.startsWith("m")) && trimmed.any { it.isDigit() })
 }
 
 fun extractSvgPathData(raw: String): Pair<String, Float> {
@@ -296,37 +308,52 @@ fun KeyboardView(
     viewModel: marcinlowercase.w.viewmodel.KeyboardViewModel
 ) {
     val density = LocalDensity.current
+    val view = LocalView.current
     var shiftKeyWidthDp by remember { mutableStateOf<Dp?>(null) }
 
     val config by viewModel.layoutConfig
+    val configuration = LocalConfiguration.current
+    val activeKeyHeight = if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+        viewModel.landscapeKeyHeightDp.value.dp
+    } else {
+        viewModel.portraitKeyHeightDp.value.dp
+    }
     val keyboardColors = resolveKeyboardColors(
         mode = viewModel.themeMode.value,
         userHighlightColor = viewModel.highlightColor.value
     )
+    val modifierBounds = remember { mutableMapOf<String, Rect>() }
 
     CompositionLocalProvider(
         LocalKeyboardViewModel provides viewModel,
-        LocalKeyboardColors provides keyboardColors
+        LocalKeyboardColors provides keyboardColors,
+        LocalKeyHeight provides activeKeyHeight,
+        LocalModifierBounds provides modifierBounds
     ) {
         val keyboardBgColor = keyboardColors.background
         val topCornerRadiusDp = viewModel.topCornerRadiusDp.value.dp
 
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .background(Color.Transparent)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(KeyboardDimens.popupHeadroom)
+                    .weight(1f)
+                    .onSizeChanged { size ->
+                        if (KeyboardDimens.measuredHeadroomPx != size.height) {
+                            KeyboardDimens.measuredHeadroomPx = size.height
+                            view.post { view.requestLayout() }
+                        }
+                    }
             ) {
                 if (topCornerRadiusDp > 0.dp) {
-                    val clampedRadiusDp = topCornerRadiusDp.coerceAtMost(KeyboardDimens.popupHeadroom)
                     Canvas(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(clampedRadiusDp)
+                            .height(topCornerRadiusDp)
                             .align(Alignment.BottomCenter)
                     ) {
                         val r = size.height.coerceAtMost(size.width / 2f)
@@ -362,8 +389,6 @@ fun KeyboardView(
                     }
                 }
             }
-
-            val dynamicBottomPadding = viewModel.bottomChinPaddingDp.value.dp
 
             Column(
                 modifier = Modifier
@@ -485,6 +510,8 @@ enum class ShiftHoldAction {
 fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     val viewModel = LocalKeyboardViewModel.current
     val colors = LocalKeyboardColors.current
+    val keyHeight = LocalKeyHeight.current
+    val isCompactKey = keyHeight < 44.dp
     val liveKey = viewModel.layoutConfig.value.rows.flatMap { it.keys }
         .find { it.id == key.id } ?: key
     val view = LocalView.current
@@ -497,6 +524,8 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     var popupHorizontalShiftDp by remember { mutableStateOf(0.dp) }
     var keycapCenterOffsetInCellDp by remember { mutableStateOf(0.dp) }
     var keycapWidthDp by remember { mutableStateOf(0.dp) }
+    var cellTopLeftInRoot by remember { mutableStateOf(Offset.Zero) }
+    val modifierBounds = LocalModifierBounds.current
 
     val popupTransitionProgress by animateFloatAsState(
         targetValue = if (showPopup) 1f else 0f,
@@ -545,13 +574,20 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     }
 
     val extraBottomPadding = if (isBottomRow) viewModel.bottomChinPaddingDp.value.dp else 0.dp
-    val cellHeight = KeyboardDimens.keyHeight + KeyboardDimens.rowGap + extraBottomPadding
+    val cellHeight = keyHeight + KeyboardDimens.rowGap + extraBottomPadding
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(cellHeight)
             .zIndex(if (isPressedDown || showPopup) 10f else 0f)
+            .onGloballyPositioned { coordinates ->
+                cellTopLeftInRoot = coordinates.positionInRoot()
+                if (key.id == "ctrl" || key.id == "alt" || key.type == KeyType.SHIFT) {
+                    val modId = if (key.type == KeyType.SHIFT) "shift" else key.id
+                    modifierBounds[modId] = coordinates.boundsInRoot()
+                }
+            }
             .pointerInput(key.id) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
@@ -585,6 +621,109 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                         return@awaitEachGesture
                     }
 
+                    val isSwipeModifier = currentKey.id == "ctrl" || currentKey.id == "alt" || currentKey.type == KeyType.SHIFT
+                    if (isSwipeModifier) {
+                        val startModId = if (currentKey.type == KeyType.SHIFT) "shift" else currentKey.id
+                        val visitedModifiers = mutableSetOf(startModId)
+                        var hasMultiSwiped = false
+
+                        fun handleModifierMove(localPos: Offset) {
+                            val rootPos = cellTopLeftInRoot + localPos
+                            val hitMod = modifierBounds.entries.firstOrNull { (_, rect) ->
+                                rect.contains(rootPos)
+                            }?.key
+                            if (hitMod != null && visitedModifiers.add(hitMod)) {
+                                hasMultiSwiped = true
+                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                viewModel.armModifiers(visitedModifiers)
+                            }
+                        }
+
+                        if (currentKey.type == KeyType.SHIFT) {
+                            var releasedEarly = false
+                            withTimeoutOrNull(220L) {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull() ?: break
+                                    if (!change.pressed) {
+                                        releasedEarly = true
+                                        break
+                                    }
+                                    handleModifierMove(change.position)
+                                    if (hasMultiSwiped) break
+                                }
+                            }
+
+                            if (hasMultiSwiped) {
+                                isPressedDown = false
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull() ?: break
+                                    if (!change.pressed) break
+                                    handleModifierMove(change.position)
+                                }
+                                return@awaitEachGesture
+                            } else if (releasedEarly) {
+                                isPressedDown = false
+                                viewModel.pressKey(viewModel.getKey(key.id))
+                                return@awaitEachGesture
+                            } else {
+                                isPressedDown = false
+                                val activeKey = viewModel.getKey(key.id)
+                                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                shiftHoldAction = ShiftHoldAction.TAB
+                                viewModel.activePopupKeyId.value = activeKey.id
+                                showPopup = true
+
+                                val startY = down.position.y
+                                val verticalThresholdPx = with(density) { 26.dp.toPx() }
+
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull() ?: break
+                                    if (change.pressed) {
+                                        val deltaY = change.position.y - startY
+                                        val newAction = if (deltaY > verticalThresholdPx) {
+                                            ShiftHoldAction.ESC
+                                        } else {
+                                            ShiftHoldAction.TAB
+                                        }
+                                        if (newAction != shiftHoldAction) {
+                                            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                            shiftHoldAction = newAction
+                                        }
+                                    } else {
+                                        viewModel.activePopupKeyId.value = null
+                                        val wasShifted = viewModel.shiftState.value == marcinlowercase.w.model.ShiftState.SHIFTED
+                                        when (shiftHoldAction) {
+                                            ShiftHoldAction.TAB,
+                                            ShiftHoldAction.NONE -> viewModel.pressKey(KeyDefinition("tab", "TAB", type = KeyType.MODIFIER))
+                                            ShiftHoldAction.ESC -> viewModel.pressKey(KeyDefinition("esc", "ESC", type = KeyType.MODIFIER))
+                                        }
+                                        if (wasShifted) {
+                                            viewModel.shiftState.value = marcinlowercase.w.model.ShiftState.OFF
+                                        }
+                                        showPopup = false
+                                        break
+                                    }
+                                }
+                                return@awaitEachGesture
+                            }
+                        } else {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull() ?: break
+                                if (!change.pressed) break
+                                handleModifierMove(change.position)
+                            }
+                            isPressedDown = false
+                            if (!hasMultiSwiped) {
+                                viewModel.pressKey(viewModel.getKey(key.id))
+                            }
+                            return@awaitEachGesture
+                        }
+                    }
+
                     var fingerReleasedEarly = false
                     withTimeoutOrNull(220L) {
                         while (true) {
@@ -603,46 +742,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                     } else {
                         isPressedDown = false
                         val activeKey = viewModel.getKey(key.id)
-                        if (activeKey.type == KeyType.SHIFT) {
-                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                            shiftHoldAction = ShiftHoldAction.TAB
-                            viewModel.activePopupKeyId.value = activeKey.id
-                            showPopup = true
-
-                            val startY = down.position.y
-                            val verticalThresholdPx = with(density) { 26.dp.toPx() }
-
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                val change = event.changes.firstOrNull() ?: break
-                                if (change.pressed) {
-                                    val deltaY = change.position.y - startY
-                                    val newAction = if (deltaY > verticalThresholdPx) {
-                                        ShiftHoldAction.ESC
-                                    } else {
-                                        ShiftHoldAction.TAB
-                                    }
-                                    if (newAction != shiftHoldAction) {
-                                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                                        shiftHoldAction = newAction
-                                    }
-                                } else {
-                                    viewModel.activePopupKeyId.value = null
-                                    val wasShifted = viewModel.shiftState.value == marcinlowercase.w.model.ShiftState.SHIFTED
-                                    when (shiftHoldAction) {
-                                        ShiftHoldAction.TAB,
-                                        ShiftHoldAction.NONE -> viewModel.pressKey(KeyDefinition("tab", "TAB", type = KeyType.MODIFIER))
-                                        ShiftHoldAction.ESC -> viewModel.pressKey(KeyDefinition("esc", "ESC", type = KeyType.MODIFIER))
-                                    }
-                                    if (wasShifted) {
-                                        viewModel.shiftState.value = marcinlowercase.w.model.ShiftState.OFF
-                                    }
-                                    showPopup = false
-                                    break
-                                }
-                            }
-                        } else {
-                            val sec = when {
+                        val sec = when {
                                 activeKey.secondaries?.hasOptions() == true -> activeKey.secondaries
                                 activeKey.popups.isNotEmpty() -> when (activeKey.popups.size) {
                                     1 -> SecondaryBindings(center = activeKey.popups[0])
@@ -694,11 +794,10 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                     }
                                 }
                             } else {
-                                while (true) {
-                                    val event = awaitPointerEvent()
-                                    val change = event.changes.firstOrNull() ?: break
-                                    if (!change.pressed) break
-                                }
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull() ?: break
+                                if (!change.pressed) break
                             }
                         }
                     }
@@ -738,7 +837,6 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                         }
                     }
 
-
                     val leftBoundaryPx = keyCenterInRoot - with(density) { 30.dp.toPx() }
                     val rightBoundaryPx = keyCenterInRoot + with(density) { 30.dp.toPx() }
 
@@ -765,13 +863,13 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(top = 3.dp, end = 4.dp)
-                            .size(11.dp)
+                            .size(if (isCompactKey) 9.dp else 11.dp)
                     )
                 } else {
                     Text(
                         text = effectiveHint,
                         color = hintColor,
-                        fontSize = 11.sp,
+                        fontSize = if (isCompactKey) 9.sp else 11.sp,
                         fontFamily = activeFont,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -799,7 +897,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                     contentDescription = null,
                     tint = keyTextColor,
                     modifier = Modifier
-                        .size(22.dp)
+                        .size(if (isCompactKey) 18.dp else 22.dp)
                         .align(Alignment.Center)
                 )
             } else if (isSvgOrPath(visualLabel)) {
@@ -807,12 +905,19 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                     raw = visualLabel,
                     tint = keyTextColor,
                     modifier = Modifier
-                        .size(20.dp)
+                        .size(if (isCompactKey) 17.dp else 20.dp)
                         .align(Alignment.Center)
                 )
             } else {
                 val labelFontSize = if (key.type == KeyType.MODIFIER) {
-                    13.sp
+                    if (isCompactKey) 11.sp else 13.sp
+                } else if (isCompactKey) {
+                    when (visualLabel.length) {
+                        0, 1 -> 17.sp
+                        2 -> 13.sp
+                        3 -> 11.sp
+                        else -> 10.sp
+                    }
                 } else {
                     when (visualLabel.length) {
                         0, 1 -> 20.sp
@@ -835,8 +940,8 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
             }
         }
 
-        val slotWidth = if (keycapWidthDp > 0.dp) keycapWidthDp else (KeyboardDimens.keyHeight * 0.65f)
-        val slotHeight = KeyboardDimens.keyHeight
+        val slotWidth = if (keycapWidthDp > 0.dp) keycapWidthDp else (keyHeight * 0.65f)
+        val slotHeight = keyHeight
         val primaryPopupMargin = KeyboardDimens.rowGap
         val primaryPopupWidth = slotWidth + (primaryPopupMargin * 2)
         val primaryPopupHeight = slotHeight + (primaryPopupMargin * 2)
@@ -915,7 +1020,6 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                             transformOrigin = TransformOrigin(0.5f, 1f)
                         }
                         .background(popupBg, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
-//                        .border(0.5.dp, popupBorder, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                         .padding(popupMargin)
                 ) {
                     Column(
@@ -1011,7 +1115,6 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                 transformOrigin = TransformOrigin(0.5f, 1f)
                             }
                             .background(popupBg, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
-//                            .border(0.5.dp, popupBorder, RoundedCornerShape(KeyboardDimens.keyCornerRadius))
                             .padding(popupMargin)
                     ) {
                         Column(
@@ -1240,7 +1343,8 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                             }
                         }
                     }
-                }            }
+                }
+            }
         }
     }
 }
@@ -1249,6 +1353,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
 fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     val viewModel = LocalKeyboardViewModel.current
     val colors = LocalKeyboardColors.current
+    val keyHeight = LocalKeyHeight.current
     val view = LocalView.current
     var isPressedDown by remember { mutableStateOf(false) }
     val isShiftOn = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
@@ -1256,7 +1361,7 @@ fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     val extraBottomPadding = if (isBottomRow) viewModel.bottomChinPaddingDp.value.dp else 0.dp
     val spaceBg = if (isPressedDown) colors.keyPressed else colors.spaceKey
     val spaceTextColor = colors.textOnCharacter
-    val cellHeight = KeyboardDimens.keyHeight + KeyboardDimens.rowGap + extraBottomPadding
+    val cellHeight = keyHeight + KeyboardDimens.rowGap + extraBottomPadding
     val spaceLabel = when (viewModel.vietnameseMode.value) {
         marcinlowercase.w.model.VietnameseMode.TELEX -> if (isShiftOn) "TELEX" else "telex"
         marcinlowercase.w.model.VietnameseMode.VNI -> if (isShiftOn) "VNI" else "vni"
