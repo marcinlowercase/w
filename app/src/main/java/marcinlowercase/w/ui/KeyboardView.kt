@@ -625,18 +625,24 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                     val isSwipeModifier = currentKey.id == "ctrl" || currentKey.id == "alt" || currentKey.type == KeyType.SHIFT
                     if (isSwipeModifier) {
                         val startModId = if (currentKey.type == KeyType.SHIFT) "shift" else currentKey.id
-                        val visitedModifiers = mutableSetOf(startModId)
+                        var currentHoverMod: String? = startModId
                         var hasMultiSwiped = false
+                        var startShiftToggled = false
 
                         fun handleModifierMove(localPos: Offset) {
                             val rootPos = cellTopLeftInRoot + localPos
                             val hitMod = modifierBounds.entries.firstOrNull { (_, rect) ->
                                 rect.contains(rootPos)
                             }?.key
-                            if (hitMod != null && visitedModifiers.add(hitMod)) {
+                            if (hitMod != null && hitMod != currentHoverMod) {
+                                if (!hasMultiSwiped && startModId == "shift" && !startShiftToggled) {
+                                    viewModel.toggleModifier("shift")
+                                    startShiftToggled = true
+                                }
                                 hasMultiSwiped = true
+                                currentHoverMod = hitMod
                                 view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                                viewModel.armModifiers(visitedModifiers)
+                                viewModel.toggleModifier(hitMod)
                             }
                         }
 
@@ -711,6 +717,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                 return@awaitEachGesture
                             }
                         } else {
+                            viewModel.toggleModifier(startModId)
                             while (true) {
                                 val event = awaitPointerEvent()
                                 val change = event.changes.firstOrNull() ?: break
@@ -718,9 +725,6 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                 handleModifierMove(change.position)
                             }
                             isPressedDown = false
-                            if (!hasMultiSwiped) {
-                                viewModel.pressKey(viewModel.getKey(key.id))
-                            }
                             return@awaitEachGesture
                         }
                     }

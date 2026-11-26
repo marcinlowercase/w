@@ -135,17 +135,23 @@ class KeyboardViewModel : ViewModel() {
         }
     }
 
-    fun armModifiers(modifiers: Set<String>) {
-        if ("ctrl" in modifiers) {
-            ctrlArmed.value = true
-            ctrlShiftArmed.value = false
-        }
-        if ("alt" in modifiers) {
-            altArmed.value = true
-            altShiftArmed.value = false
-        }
-        if ("shift" in modifiers && shiftState.value == ShiftState.OFF) {
-            shiftState.value = ShiftState.SHIFTED
+    fun toggleModifier(modId: String) {
+        when (modId) {
+            "ctrl" -> {
+                ctrlArmed.value = !ctrlArmed.value
+                ctrlShiftArmed.value = false
+            }
+            "alt" -> {
+                altArmed.value = !altArmed.value
+                altShiftArmed.value = false
+            }
+            "shift" -> {
+                shiftState.value = if (shiftState.value == ShiftState.OFF) {
+                    ShiftState.SHIFTED
+                } else {
+                    ShiftState.OFF
+                }
+            }
         }
     }
 
