@@ -540,6 +540,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     val onHighlightColor = colors.onHighlight
 
     val isShiftActive = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
+    val isSingleShifted = viewModel.shiftState.value == marcinlowercase.w.model.ShiftState.SHIFTED
     val isCtrlArmed = key.id == "ctrl" && viewModel.ctrlArmed.value
     val isAltArmed = key.id == "alt" && viewModel.altArmed.value
     val isModifierArmed = (key.type == KeyType.SHIFT && isShiftActive) || isCtrlArmed || isAltArmed
@@ -884,7 +885,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                     marcinlowercase.w.model.ShiftState.SHIFTED -> R.drawable.ic_shift_on
                     marcinlowercase.w.model.ShiftState.CAPS_LOCK -> R.drawable.ic_caps_lock
                 }
-                KeyType.BACKSPACE -> if (isShiftActive) R.drawable.ic_delete else R.drawable.ic_backspace
+                KeyType.BACKSPACE -> if (isSingleShifted) R.drawable.ic_delete else R.drawable.ic_backspace
                 KeyType.ENTER -> R.drawable.ic_new_line
                 else -> null
             }

@@ -207,7 +207,7 @@ class KeyboardViewModel : ViewModel() {
         if (altArmed.value) {
             metaState = metaState or android.view.KeyEvent.META_ALT_ON or android.view.KeyEvent.META_ALT_LEFT_ON
         }
-        if (ctrlShiftArmed.value || altShiftArmed.value || shiftState.value != ShiftState.OFF) {
+        if (ctrlShiftArmed.value || altShiftArmed.value || shiftState.value == ShiftState.SHIFTED) {
             metaState = metaState or android.view.KeyEvent.META_SHIFT_ON or android.view.KeyEvent.META_SHIFT_LEFT_ON
         }
 
