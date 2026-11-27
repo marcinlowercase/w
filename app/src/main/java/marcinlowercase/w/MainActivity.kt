@@ -693,6 +693,20 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
     val savedJson by preferences.layoutConfigJson.collectAsState(initial = null)
     var layoutConfig by remember { mutableStateOf(DefaultLayout.create(context)) }
     var selectedKeyId by remember { mutableStateOf("c") }
+    var availableSpaceLanguages by remember { mutableStateOf(getAvailableSpaceLanguages(context)) }
+
+    DisposableEffect(context) {
+        val lifecycleOwner = context as? LifecycleOwner
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                availableSpaceLanguages = getAvailableSpaceLanguages(context)
+            }
+        }
+        lifecycleOwner?.lifecycle?.addObserver(observer)
+        onDispose {
+            lifecycleOwner?.lifecycle?.removeObserver(observer)
+        }
+    }
 
     LaunchedEffect(savedJson) {
         val currentJson = savedJson
@@ -1034,19 +1048,48 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                 )
                             }
                             KeyType.SPACE -> {
-                                ModifierDisplayField(
-                                    label = "Space Display / SVG",
-                                    value = selectedKey.displayLabel ?: "",
-                                    placeholder = "space or SVG",
-                                    onValueChange = { v ->
-                                        updateSelectedKey { it.copy(displayLabel = v.ifEmpty { null }) }
-                                    },
-                                    onPickSvg = {
-                                        pickSvg { svg ->
-                                            updateSelectedKey { it.copy(displayLabel = svg.ifEmpty { null }) }
+                                availableSpaceLanguages.forEach { (langKey, langLabel) ->
+                                    val currentVal = selectedKey.languageDisplays[langKey]
+                                        ?: (if (langKey == "en") selectedKey.displayLabel else null)
+                                        ?: ""
+                                    ModifierDisplayField(
+                                        label = "$langLabel Display / SVG",
+                                        value = currentVal,
+                                        placeholder = "$langKey or SVG",
+                                        onValueChange = { v ->
+                                            updateSelectedKey { key ->
+                                                val updatedMap = key.languageDisplays.toMutableMap()
+                                                if (v.isEmpty()) {
+                                                    updatedMap.remove(langKey)
+                                                } else {
+                                                    updatedMap[langKey] = v
+                                                }
+                                                val updatedDisplay = if (langKey == "en") v.ifEmpty { null } else key.displayLabel
+                                                key.copy(
+                                                    displayLabel = updatedDisplay,
+                                                    languageDisplays = updatedMap
+                                                )
+                                            }
+                                        },
+                                        onPickSvg = {
+                                            pickSvg { svg ->
+                                                updateSelectedKey { key ->
+                                                    val updatedMap = key.languageDisplays.toMutableMap()
+                                                    if (svg.isEmpty()) {
+                                                        updatedMap.remove(langKey)
+                                                    } else {
+                                                        updatedMap[langKey] = svg
+                                                    }
+                                                    val updatedDisplay = if (langKey == "en") svg.ifEmpty { null } else key.displayLabel
+                                                    key.copy(
+                                                        displayLabel = updatedDisplay,
+                                                        languageDisplays = updatedMap
+                                                    )
+                                                }
+                                            }
                                         }
-                                    }
-                                )
+                                    )
+                                }
                             }
                             KeyType.ENTER -> {
                                 ModifierDisplayField(
@@ -1317,6 +1360,44 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
             }
         }
     }
+}
+
+fun getAvailableSpaceLanguages(context: Context): List<Pair<String, String>> {
+    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+    val imInfo = imm.inputMethodList.find { it.packageName == context.packageName }
+    val enabled = if (imInfo != null) {
+        imm.getEnabledInputMethodSubtypeList(imInfo, true)
+    } else {
+        emptyList()
+    }
+
+    if (enabled.size > 1 && imInfo != null) {
+        return enabled.map { subtype ->
+            val tag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                subtype.languageTag.ifEmpty { subtype.locale }
+            } else {
+                subtype.locale
+            }
+            val extra = subtype.extraValue
+            val langKey = when {
+                tag.startsWith("vi", ignoreCase = true) && extra.contains("vni", ignoreCase = true) -> "vni"
+                tag.startsWith("vi", ignoreCase = true) -> "telex"
+                else -> "en"
+            }
+            val displayName = subtype.getDisplayName(
+                context,
+                context.packageName,
+                imInfo.serviceInfo.applicationInfo
+            ).toString()
+            langKey to displayName
+        }.distinctBy { it.first }
+    }
+
+    return listOf(
+        "en" to context.getString(R.string.subtype_en_us),
+        "telex" to context.getString(R.string.subtype_vi_telex),
+        "vni" to context.getString(R.string.subtype_vi_vni)
+    )
 }
 
 @Composable

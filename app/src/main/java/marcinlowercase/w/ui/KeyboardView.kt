@@ -1673,17 +1673,23 @@ fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     val spaceBg = if (isPressedDown) colors.keyPressed else colors.spaceKey
     val spaceTextColor = colors.textOnCharacter
     val cellHeight = keyHeight + KeyboardDimens.rowGap + extraBottomPadding
-    val rawSpaceCustom = liveKey.displayLabel ?: "space"
-    val spaceLabel = when (viewModel.vietnameseMode.value) {
-        marcinlowercase.w.model.VietnameseMode.TELEX -> if (isShiftOn) "TELEX" else "telex"
-        marcinlowercase.w.model.VietnameseMode.VNI -> if (isShiftOn) "VNI" else "vni"
-        marcinlowercase.w.model.VietnameseMode.OFF -> {
-            if (!isSvgOrPath(rawSpaceCustom) && isShiftOn && rawSpaceCustom.all { it.isLetter() }) {
-                rawSpaceCustom.uppercase()
-            } else {
-                rawSpaceCustom
-            }
-        }
+    val langKey = when (viewModel.vietnameseMode.value) {
+        marcinlowercase.w.model.VietnameseMode.TELEX -> "telex"
+        marcinlowercase.w.model.VietnameseMode.VNI -> "vni"
+        marcinlowercase.w.model.VietnameseMode.OFF -> "en"
+    }
+    val defaultLangText = when (viewModel.vietnameseMode.value) {
+        marcinlowercase.w.model.VietnameseMode.TELEX -> "telex"
+        marcinlowercase.w.model.VietnameseMode.VNI -> "vni"
+        marcinlowercase.w.model.VietnameseMode.OFF -> "space"
+    }
+    val rawSpaceCustom = liveKey.languageDisplays[langKey]
+        ?: (if (langKey == "en") liveKey.displayLabel else null)
+        ?: defaultLangText
+    val spaceLabel = if (!isSvgOrPath(rawSpaceCustom) && isShiftOn && rawSpaceCustom.all { it.isLetter() }) {
+        rawSpaceCustom.uppercase()
+    } else {
+        rawSpaceCustom
     }
 
     Box(
@@ -1763,7 +1769,7 @@ fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            if (viewModel.vietnameseMode.value == marcinlowercase.w.model.VietnameseMode.OFF && isSvgOrPath(spaceLabel)) {
+            if (isSvgOrPath(spaceLabel)) {
                 SvgPathIcon(
                     raw = spaceLabel,
                     tint = spaceTextColor,

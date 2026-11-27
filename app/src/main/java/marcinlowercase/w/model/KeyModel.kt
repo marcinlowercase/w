@@ -71,6 +71,7 @@ data class KeyDefinition(
     val id: String,
     val primaryChar: String,
     val displayLabel: String? = null,
+    val languageDisplays: Map<String, String> = emptyMap(),
     val shiftPrimaryChar: String? = null,
     val shiftDisplayLabel: String? = null,
     val shiftOnDisplay: String? = null,

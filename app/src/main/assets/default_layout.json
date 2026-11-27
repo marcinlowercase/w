@@ -309,6 +309,11 @@
                     "id": "space",
                     "primaryChar": " ",
                     "displayLabel": "space",
+                    "languageDisplays": {
+                        "en": "space",
+                        "telex": "telex",
+                        "vni": "vni"
+                    },
                     "type": "SPACE",
                     "weight": 5.5
                 },
