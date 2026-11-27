@@ -23,6 +23,7 @@ class KeyboardPreferences(private val context: Context) {
         val KEY_OUTSYNC_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("outsync_enabled")
         val KEY_ROUND_CORNER_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("round_corner_enabled")
         val KEY_THEME_MODE = stringPreferencesKey("keyboard_theme_mode")
+        val KEY_SETTINGS_SHORTCUT = stringPreferencesKey("settings_shortcut")
         val KEY_LANGUAGE_SWITCH_SHORTCUT = stringPreferencesKey("language_switch_shortcut")
         val KEY_PORTRAIT_KEY_HEIGHT = intPreferencesKey("portrait_key_height_dp")
         val KEY_LANDSCAPE_KEY_HEIGHT = intPreferencesKey("landscape_key_height_dp")
@@ -127,6 +128,16 @@ class KeyboardPreferences(private val context: Context) {
     suspend fun setThemeMode(mode: KeyboardThemeMode) {
         context.dataStore.edit { preferences ->
             preferences[KEY_THEME_MODE] = mode.key
+        }
+    }
+
+    val settingsShortcut: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[KEY_SETTINGS_SHORTCUT] ?: "Ctrl+Alt+Shift+,"
+    }
+
+    suspend fun setSettingsShortcut(shortcut: String) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_SETTINGS_SHORTCUT] = shortcut
         }
     }
 

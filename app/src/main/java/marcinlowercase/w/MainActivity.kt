@@ -157,8 +157,10 @@ fun SettingsScreen(
     val outsyncEnabledState = preferences.outsyncEnabled.collectAsState(initial = true)
     val roundCornerEnabledState = preferences.roundCornerEnabled.collectAsState(initial = false)
     val themeModeState = preferences.themeMode.collectAsState(initial = KeyboardThemeMode.SYSTEM)
+    val settingsShortcutState = preferences.settingsShortcut.collectAsState(initial = "Ctrl+Alt+Shift+,")
     val languageShortcutState = preferences.languageSwitchShortcut.collectAsState(initial = "Ctrl+Shift+q")
     val onboardingCompletedState = preferences.onboardingCompleted.collectAsState(initial = null)
+    var settingsShortcutInput by remember(settingsShortcutState.value) { mutableStateOf(settingsShortcutState.value) }
     var shortcutInput by remember(languageShortcutState.value) { mutableStateOf(languageShortcutState.value) }
     var browserInstalled by remember { mutableStateOf(isBrowserInstalled(context)) }
     var isImeEnabled by remember { mutableStateOf(isKeyboardEnabled(context)) }
@@ -405,6 +407,40 @@ fun SettingsScreen(
                 }
             }
         )
+
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "settings shortcut",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "keyboard shortcut to open the settings screen (default: Ctrl+Alt+Shift+,).",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = settingsShortcutInput,
+                    onValueChange = { newVal ->
+                        settingsShortcutInput = newVal
+                        coroutineScope.launch {
+                            preferences.setSettingsShortcut(newVal.ifBlank { "Ctrl+Alt+Shift+," })
+                        }
+                    },
+                    placeholder = { Text("Ctrl+Alt+Shift+,") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        }
 
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),

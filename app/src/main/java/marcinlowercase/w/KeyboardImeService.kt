@@ -3,6 +3,7 @@ package marcinlowercase.w
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.database.ContentObserver
 import android.inputmethodservice.InputMethodService
@@ -115,11 +116,18 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         viewModel.vietnameseMode.value = vietnameseMode
     }
 
+    private fun openKeyboardSettings() {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+        startActivity(intent)
+    }
+
     private fun matchesShortcut(shortcutStr: String, key: KeyDefinition, metaState: Int): Boolean {
         val parts = shortcutStr.uppercase().split("+").map { it.trim() }.filter { it.isNotEmpty() }
         if (parts.isEmpty()) return false
 
-        val reqCtrl = parts.contains("CTRL")
+        val reqCtrl = parts.contains("CTRL") || parts.contains("CONTROL")
         val reqAlt = parts.contains("ALT")
         val reqShift = parts.contains("SHIFT")
 
@@ -131,7 +139,7 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             return false
         }
 
-        val keyParts = parts.filter { it !in listOf("CTRL", "ALT", "SHIFT") }
+        val keyParts = parts.filter { it !in listOf("CTRL", "CONTROL", "ALT", "SHIFT") }
         if (keyParts.isEmpty()) return false
 
         val expectedKey = keyParts.first()
@@ -229,6 +237,11 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             preferences.themeMode.collect { mode ->
                 savedThemeMode = mode
                 updateBrowserDesign()
+            }
+        }
+        serviceScope.launch {
+            preferences.settingsShortcut.collect { shortcut ->
+                viewModel.settingsShortcut.value = shortcut
             }
         }
         serviceScope.launch {
@@ -509,6 +522,11 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             }
 
             return false
+        }
+
+        if (matchesShortcut(viewModel.settingsShortcut.value, key, metaState)) {
+            openKeyboardSettings()
+            return true
         }
 
         if (matchesShortcut(viewModel.languageSwitchShortcut.value, key, metaState)) {

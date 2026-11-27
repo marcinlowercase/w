@@ -34,6 +34,7 @@ class KeyboardViewModel : ViewModel() {
     val roundCornerEnabled = mutableStateOf(false)
     val themeMode = mutableStateOf(KeyboardThemeMode.SYSTEM)
     val vietnameseMode = mutableStateOf(VietnameseMode.OFF)
+    val settingsShortcut = mutableStateOf("Ctrl+Alt+Shift+,")
     val languageSwitchShortcut = mutableStateOf("Ctrl+Shift+q")
     var audioManager: AudioManager? = null
     private var lastShiftPressTime = 0L
@@ -234,8 +235,29 @@ class KeyboardViewModel : ViewModel() {
 
     fun selectPopup(symbol: String) {
         val payload = symbol
+        val hasModifiers = ctrlArmed.value || altArmed.value || ctrlShiftArmed.value || altShiftArmed.value
         if (isMacroCommand(payload)) {
             executeMacro(payload)
+        } else if (hasModifiers) {
+            var metaState = 0
+            if (ctrlArmed.value) {
+                metaState = metaState or android.view.KeyEvent.META_CTRL_ON or android.view.KeyEvent.META_CTRL_LEFT_ON
+            }
+            if (altArmed.value) {
+                metaState = metaState or android.view.KeyEvent.META_ALT_ON or android.view.KeyEvent.META_ALT_LEFT_ON
+            }
+            if (ctrlShiftArmed.value || altShiftArmed.value || shiftState.value == ShiftState.SHIFTED) {
+                metaState = metaState or android.view.KeyEvent.META_SHIFT_ON or android.view.KeyEvent.META_SHIFT_LEFT_ON
+            }
+            val secondaryKey = KeyDefinition(
+                id = payload,
+                primaryChar = payload,
+                type = KeyType.CHARACTER
+            )
+            val handled = onKeyPressHandler?.invoke(secondaryKey, metaState) ?: false
+            if (!handled) {
+                onTextCommitHandler?.invoke(payload)
+            }
         } else {
             onTextCommitHandler?.invoke(payload)
         }
