@@ -24,6 +24,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -41,6 +42,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -55,6 +57,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -65,8 +68,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -910,6 +917,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                 }
             }
 
+            key(selectedKeyId) {
             if (selectedKey != null && selectedKey.type != KeyType.CHARACTER && selectedKey.type != KeyType.SPACER) {
                 ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
@@ -1141,29 +1149,19 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                         )
 
                         val isPrimaryDisplayEnabled = selectedKey.primaryChar.isNotEmpty() || !selectedKey.displayLabel.isNullOrEmpty()
-                        OutlinedTextField(
+                        ModifierDisplayField(
+                            label = "Keycap Display Label (Optional)",
                             value = selectedKey.displayLabel ?: "",
+                            placeholder = "e.g. 'COPY' or SVG",
+                            enabled = isPrimaryDisplayEnabled,
                             onValueChange = { newLabel ->
                                 updateSelectedKey { it.copy(displayLabel = newLabel.ifEmpty { null }) }
                             },
-                            enabled = isPrimaryDisplayEnabled,
-                            label = { Text("Keycap Display Label (Optional)") },
-                            placeholder = { Text("e.g. 'COPY' or SVG") },
-                            trailingIcon = if (isPrimaryDisplayEnabled) {
-                                {
-                                    TextButton(
-                                        onClick = {
-                                            pickSvg { svgText ->
-                                                updateSelectedKey { it.copy(displayLabel = svgText.ifEmpty { null }) }
-                                            }
-                                        },
-                                        contentPadding = PaddingValues(horizontal = 6.dp)
-                                    ) {
-                                        Text("Open SVG", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                    }
+                            onPickSvg = {
+                                pickSvg { svgText ->
+                                    updateSelectedKey { it.copy(displayLabel = svgText.ifEmpty { null }) }
                                 }
-                            } else null,
-                            modifier = Modifier.fillMaxWidth()
+                            }
                         )
 
                         val isNumberKey = selectedKey.primaryChar.isNotEmpty() && selectedKey.primaryChar.all { it.isDigit() }
@@ -1179,29 +1177,19 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                             )
 
                             val isShiftDisplayEnabled = !selectedKey.shiftPrimaryChar.isNullOrEmpty() || !selectedKey.shiftDisplayLabel.isNullOrEmpty()
-                            OutlinedTextField(
+                            ModifierDisplayField(
+                                label = "Shift Keycap Display Label (Optional)",
                                 value = selectedKey.shiftDisplayLabel ?: "",
+                                placeholder = "e.g. '#' or SVG",
+                                enabled = isShiftDisplayEnabled,
                                 onValueChange = { newShiftLabel ->
                                     updateSelectedKey { it.copy(shiftDisplayLabel = newShiftLabel.ifEmpty { null }) }
                                 },
-                                enabled = isShiftDisplayEnabled,
-                                label = { Text("Shift Keycap Display Label (Optional)") },
-                                placeholder = { Text("e.g. '#' or SVG") },
-                                trailingIcon = if (isShiftDisplayEnabled) {
-                                    {
-                                        TextButton(
-                                            onClick = {
-                                                pickSvg { svgText ->
-                                                    updateSelectedKey { it.copy(shiftDisplayLabel = svgText.ifEmpty { null }) }
-                                                }
-                                            },
-                                            contentPadding = PaddingValues(horizontal = 6.dp)
-                                        ) {
-                                            Text("Open SVG", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                        }
+                                onPickSvg = {
+                                    pickSvg { svgText ->
+                                        updateSelectedKey { it.copy(shiftDisplayLabel = svgText.ifEmpty { null }) }
                                     }
-                                } else null,
-                                modifier = Modifier.fillMaxWidth()
+                                }
                             )
                         }
 
@@ -1358,6 +1346,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                     }
                 }
             }
+            }
         }
     }
 }
@@ -1401,28 +1390,95 @@ fun getAvailableSpaceLanguages(context: Context): List<Pair<String, String>> {
 }
 
 @Composable
+fun rememberIsOverThreeLines(value: String, availableWidthDp: Dp): Boolean {
+    val textMeasurer = rememberTextMeasurer()
+    val textStyle = LocalTextStyle.current
+    val density = LocalDensity.current
+    val availableWidthPx = with(density) { availableWidthDp.roundToPx() }
+    return remember(value, availableWidthPx, textStyle) {
+        if (value.isEmpty()) {
+            false
+        } else if (value.count { it == '\n' } >= 3) {
+            true
+        } else if (availableWidthPx > 0) {
+            textMeasurer.measure(
+                text = value,
+                style = textStyle,
+                constraints = Constraints(maxWidth = availableWidthPx)
+            ).lineCount > 3
+        } else {
+            false
+        }
+    }
+}
+
+@Composable
 fun ModifierDisplayField(
     label: String,
     value: String,
     placeholder: String,
     onValueChange: (String) -> Unit,
-    onPickSvg: () -> Unit
+    onPickSvg: () -> Unit,
+    enabled: Boolean = true
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        placeholder = { Text(placeholder) },
-        trailingIcon = {
-            TextButton(
-                onClick = onPickSvg,
-                contentPadding = PaddingValues(horizontal = 6.dp)
+    var isCollapsed by remember { mutableStateOf(false) }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val isLongText = rememberIsOverThreeLines(
+            value = value,
+            availableWidthDp = (maxWidth - 32.dp).coerceAtLeast(80.dp)
+        )
+        val effectiveCollapsed = isCollapsed && isLongText
+
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Open SVG", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = label,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                    modifier = Modifier.weight(1f)
+                )
+                if (enabled) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isLongText) {
+                            TextButton(
+                                onClick = { isCollapsed = !isCollapsed },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text(
+                                    text = if (effectiveCollapsed) "Expand" else "Shrink",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                        TextButton(
+                            onClick = onPickSvg,
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Text("Open SVG", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
             }
-        },
-        modifier = Modifier.fillMaxWidth()
-    )
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                enabled = enabled,
+                singleLine = effectiveCollapsed,
+                maxLines = if (effectiveCollapsed) 1 else Int.MAX_VALUE,
+                placeholder = { Text(placeholder) },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
 }
 
 @Composable
@@ -1435,44 +1491,79 @@ fun SecondaryDirectionEditor(
     onPickSvg: () -> Unit,
     enabled: Boolean = true
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = title,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    var isCollapsed by remember { mutableStateOf(false) }
+    val isDisplayEnabled = enabled && (contentValue.isNotEmpty() || displayValue.isNotEmpty())
+    val activeDisplayValue = if (enabled) displayValue else ""
+
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val halfWidth = ((maxWidth - 8.dp) / 2f - 32.dp).coerceAtLeast(60.dp)
+        val isLongText = rememberIsOverThreeLines(
+            value = activeDisplayValue,
+            availableWidthDp = halfWidth
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedTextField(
-                value = if (enabled) contentValue else "",
-                onValueChange = onContentChange,
-                enabled = enabled,
-                label = { Text("Payload / Macro") },
-                placeholder = { Text("Symbol or macro") },
-                modifier = Modifier.weight(1f)
-            )
-            val isDisplayEnabled = enabled && (contentValue.isNotEmpty() || displayValue.isNotEmpty())
-            OutlinedTextField(
-                value = if (enabled) displayValue else "",
-                onValueChange = onDisplayChange,
-                enabled = isDisplayEnabled,
-                label = { Text("Display / SVG") },
-                placeholder = { Text("Label or SVG") },
-                trailingIcon = if (isDisplayEnabled) {
-                    {
+        val effectiveCollapsed = isCollapsed && isLongText
+
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                    modifier = Modifier.weight(1f)
+                )
+                if (isDisplayEnabled) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isLongText) {
+                            TextButton(
+                                onClick = { isCollapsed = !isCollapsed },
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text(
+                                    text = if (effectiveCollapsed) "Expand" else "Shrink",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
                         TextButton(
                             onClick = onPickSvg,
-                            contentPadding = PaddingValues(horizontal = 4.dp)
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                            modifier = Modifier.height(28.dp)
                         ) {
-                            Text("Open SVG", fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Open SVG", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
-                } else null,
-                modifier = Modifier.weight(1f)
-            )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = if (enabled) contentValue else "",
+                    onValueChange = onContentChange,
+                    enabled = enabled,
+                    label = { Text("Payload / Macro") },
+                    placeholder = { Text("Symbol or macro") },
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = activeDisplayValue,
+                    onValueChange = onDisplayChange,
+                    enabled = isDisplayEnabled,
+                    singleLine = effectiveCollapsed,
+                    maxLines = if (effectiveCollapsed) 1 else Int.MAX_VALUE,
+                    label = { Text("Display / SVG") },
+                    placeholder = { Text("Label or SVG") },
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }
