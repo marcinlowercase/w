@@ -12,6 +12,7 @@ import android.os.Build
 import androidx.compose.foundation.layout.PaddingValues
 import android.os.Bundle
 import android.provider.Settings
+import android.view.ViewTreeObserver
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -48,6 +49,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -69,6 +71,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -154,21 +158,57 @@ fun SettingsScreen(
     val roundCornerEnabledState = preferences.roundCornerEnabled.collectAsState(initial = false)
     val themeModeState = preferences.themeMode.collectAsState(initial = KeyboardThemeMode.SYSTEM)
     val languageShortcutState = preferences.languageSwitchShortcut.collectAsState(initial = "Ctrl+Shift+q")
+    val onboardingCompletedState = preferences.onboardingCompleted.collectAsState(initial = null)
     var shortcutInput by remember(languageShortcutState.value) { mutableStateOf(languageShortcutState.value) }
     var browserInstalled by remember { mutableStateOf(isBrowserInstalled(context)) }
+    var isImeEnabled by remember { mutableStateOf(isKeyboardEnabled(context)) }
+    var isImeActive by remember { mutableStateOf(isKeyboardActive(context)) }
+    var showOnboardingManually by remember { mutableStateOf(false) }
     var testInputText by remember { mutableStateOf("") }
+    val view = LocalView.current
 
-    DisposableEffect(context) {
+    fun refreshSystemStates() {
+        browserInstalled = isBrowserInstalled(context)
+        isImeEnabled = isKeyboardEnabled(context)
+        isImeActive = isKeyboardActive(context)
+    }
+
+    DisposableEffect(context, view) {
         val lifecycleOwner = context as? LifecycleOwner
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                browserInstalled = isBrowserInstalled(context)
+                refreshSystemStates()
+            }
+        }
+        val focusListener = ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->
+            if (hasFocus) {
+                refreshSystemStates()
             }
         }
         lifecycleOwner?.lifecycle?.addObserver(observer)
+        view.viewTreeObserver.addOnWindowFocusChangeListener(focusListener)
         onDispose {
             lifecycleOwner?.lifecycle?.removeObserver(observer)
+            if (view.viewTreeObserver.isAlive) {
+                view.viewTreeObserver.removeOnWindowFocusChangeListener(focusListener)
+            }
         }
+    }
+
+    val showOnboarding = showOnboardingManually || (onboardingCompletedState.value == false)
+    if (showOnboarding) {
+        OnboardingDialog(
+            context = context,
+            accentColor = Color(highlightColorState.value),
+            isImeEnabled = isImeEnabled,
+            isImeActive = isImeActive,
+            onDismiss = {
+                showOnboardingManually = false
+                coroutineScope.launch {
+                    preferences.setOnboardingCompleted(true)
+                }
+            }
+        )
     }
 
     val fontPickerLauncher = rememberLauncherForActivityResult(
@@ -199,7 +239,12 @@ fun SettingsScreen(
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        StatusCard(context)
+        StatusCard(
+            context = context,
+            isImeEnabled = isImeEnabled,
+            isImeActive = isImeActive,
+            onOpenSetupGuide = { showOnboardingManually = true }
+        )
 
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
@@ -628,8 +673,238 @@ fun isBrowserInstalled(context: Context): Boolean {
     }
 }
 
+fun isKeyboardEnabled(context: Context): Boolean {
+    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+    return imm.enabledInputMethodList.any { it.packageName == context.packageName }
+}
+
+fun isKeyboardActive(context: Context): Boolean {
+    val defaultIme = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.DEFAULT_INPUT_METHOD
+    )
+    return defaultIme?.startsWith("${context.packageName}/") == true
+}
+
+fun openSystemImeSettings(context: Context) {
+    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+    val imId = imm.inputMethodList.find { it.packageName == context.packageName }?.id
+        ?: "${context.packageName}/marcinlowercase.w.KeyboardImeService"
+    val fragmentArgsKey = ":settings:fragment_args_key"
+    val showFragmentArgsKey = ":settings:show_fragment_args"
+    val args = Bundle().apply {
+        putString(fragmentArgsKey, imId)
+    }
+    val intent = Intent(Settings.ACTION_INPUT_METHOD_SETTINGS).apply {
+        putExtra(fragmentArgsKey, imId)
+        putExtra(showFragmentArgsKey, args)
+    }
+    try {
+        context.startActivity(intent)
+    } catch (_: Exception) {
+        context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+    }
+}
+
+fun openInputLanguagesSettings(context: Context) {
+    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+    val imId = imm.enabledInputMethodList.find { it.packageName == context.packageName }?.id
+    val intent = Intent(Settings.ACTION_INPUT_METHOD_SUBTYPE_SETTINGS).apply {
+        if (imId != null) {
+            putExtra(Settings.EXTRA_INPUT_METHOD_ID, imId)
+        }
+    }
+    try {
+        context.startActivity(intent)
+    } catch (_: Exception) {
+        context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+    }
+}
+
 @Composable
-fun StatusCard(context: Context) {
+fun OnboardingDialog(
+    context: Context,
+    accentColor: Color,
+    isImeEnabled: Boolean,
+    isImeActive: Boolean,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    text = "keyboard setup guide",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+                Text(
+                    text = "follow these steps to enable and switch to this keyboard on Android:",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "step 1: enable keyboard",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = if (isImeEnabled) "enabled" else "required",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isImeEnabled) accentColor else MaterialTheme.colorScheme.error
+                            )
+                        }
+                        Text(
+                            text = "open system settings and toggle on \"${context.getString(R.string.app_name)}\".",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (isImeEnabled) {
+                            OutlinedButton(
+                                onClick = { openSystemImeSettings(context) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("system settings")
+                            }
+                        } else {
+                            Button(
+                                onClick = { openSystemImeSettings(context) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("open system settings")
+                            }
+                        }
+                    }
+                }
+
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "step 2: switch keyboard",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = when {
+                                    isImeActive -> "active"
+                                    isImeEnabled -> "ready"
+                                    else -> "waiting"
+                                },
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isImeActive) accentColor else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            text = "tap switch active and select \"${context.getString(R.string.app_name)}\" from the list.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Button(
+                            onClick = {
+                                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                                imm.showInputMethodPicker()
+                            },
+                            enabled = isImeEnabled,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("switch active")
+                        }
+                    }
+                }
+
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "step 3 (optional): add languages",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "to add Vietnamese (Telex or VNI), open input languages, turn off \"use system languages\", and toggle on the layouts you want.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedButton(
+                            onClick = { openInputLanguagesSettings(context) },
+                            enabled = isImeEnabled,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("input languages")
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isImeEnabled && isImeActive) {
+                        Button(onClick = onDismiss) {
+                            Text("done")
+                        }
+                    } else {
+                        TextButton(onClick = onDismiss) {
+                            Text("skip")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StatusCard(
+    context: Context,
+    isImeEnabled: Boolean,
+    isImeActive: Boolean,
+    onOpenSetupGuide: () -> Unit
+) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp)
@@ -638,39 +913,44 @@ fun StatusCard(context: Context) {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = "Keyboard Status",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Keyboard Status",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = when {
+                            isImeActive -> "active"
+                            isImeEnabled -> "enabled, not active"
+                            else -> "not enabled"
+                        },
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                TextButton(onClick = onOpenSetupGuide) {
+                    Text("setup guide")
+                }
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 OutlinedButton(
-                    onClick = {
-                        context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
-                    },
+                    onClick = { openSystemImeSettings(context) },
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("System Settings")
                 }
                 OutlinedButton(
-                    onClick = {
-                        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                        val imId = imm.enabledInputMethodList.find { it.packageName == context.packageName }?.id
-                        val intent = Intent(Settings.ACTION_INPUT_METHOD_SUBTYPE_SETTINGS).apply {
-                            if (imId != null) {
-                                putExtra(Settings.EXTRA_INPUT_METHOD_ID, imId)
-                            }
-                        }
-                        try {
-                            context.startActivity(intent)
-                        } catch (_: Exception) {
-                            context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
-                        }
-                    },
+                    onClick = { openInputLanguagesSettings(context) },
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("Input Languages")

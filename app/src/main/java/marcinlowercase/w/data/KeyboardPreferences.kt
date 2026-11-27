@@ -26,6 +26,7 @@ class KeyboardPreferences(private val context: Context) {
         val KEY_LANGUAGE_SWITCH_SHORTCUT = stringPreferencesKey("language_switch_shortcut")
         val KEY_PORTRAIT_KEY_HEIGHT = intPreferencesKey("portrait_key_height_dp")
         val KEY_LANDSCAPE_KEY_HEIGHT = intPreferencesKey("landscape_key_height_dp")
+        val KEY_ONBOARDING_COMPLETED = androidx.datastore.preferences.core.booleanPreferencesKey("onboarding_completed")
     }
 
     val bottomPaddingDp: Flow<Int> = context.dataStore.data.map { preferences ->
@@ -153,6 +154,16 @@ class KeyboardPreferences(private val context: Context) {
     suspend fun clearLayoutConfigJson() {
         context.dataStore.edit { preferences ->
             preferences.remove(KEY_LAYOUT_CONFIG_JSON)
+        }
+    }
+
+    val onboardingCompleted: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[KEY_ONBOARDING_COMPLETED] ?: false
+    }
+
+    suspend fun setOnboardingCompleted(completed: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_ONBOARDING_COMPLETED] = completed
         }
     }
 }
