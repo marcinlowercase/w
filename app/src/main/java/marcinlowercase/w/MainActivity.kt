@@ -257,12 +257,12 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Key Mapping",
+                    text = "key mapping",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "Customize secondary options, directional flicks, and custom symbols for every keycap.",
+                    text = "customize secondary options, directional flicks, and custom symbols for every keycap.",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -273,7 +273,7 @@ fun SettingsScreen(
                     onClick = onNavigateToMapping,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Configure Key Bindings")
+                    Text("configure key bindings")
                 }
             }
         }
@@ -291,12 +291,12 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Sound on Keypress",
+                        text = "sound on keypress",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Play native system audio clicks when tapping keys.",
+                        text = "play native system audio clicks when tapping keys.",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -335,9 +335,9 @@ fun SettingsScreen(
                     )
                     Text(
                         text = if (browserInstalled) {
-                            "Sync theme, padding, and highlight color dynamically when using the keyboard with \"the browser of oo1 studio\"."
+                            "sync theme, padding, and highlight color dynamically when using the keyboard with \"the browser of oo1 studio\"."
                         } else {
-                            "Download \"the browser of oo1 studio\" to enable \"outsync\"."
+                            "download \"the browser of oo1 studio\" to enable \"outsync\"."
                         },
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -372,15 +372,15 @@ fun SettingsScreen(
                         .padding(end = 12.dp)
                 ) {
                     Text(
-                        text = "Round Corners",
+                        text = "round corners",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
                         text = if (browserInstalled) {
-                            "Match the top curve to your device screen's hardware corner radius."
+                            "match the top curve to your device screen's hardware corner radius."
                         } else {
-                            "Download \"the browser of oo1 studio\" to enable round corners."
+                            "download \"the browser of oo1 studio\" to enable round corners."
                         },
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -451,12 +451,12 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "Language Switch Shortcut",
+                    text = "language switch shortcut",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "Keyboard shortcut to cycle languages (default: Ctrl+Shift+q). Supports combinations like Ctrl+Shift+q, Ctrl+Space, or Alt+Shift+z.",
+                    text = "keyboard shortcut to cycle languages (default: Ctrl+Shift+q). supports combinations like Ctrl+Shift+q, Ctrl+Space, or Alt+Shift+z.",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -494,12 +494,12 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "Keyboard Font",
+                    text = "keyboard font",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "Import any TTF or OTF font file (like JetBrains Mono, Fira Code, or Hack) to use on all keycaps.",
+                    text = "import any TTF or OTF font file (like JetBrains Mono, Fira Code, or Hack) to use on all keycaps.",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -512,11 +512,11 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Current Font:",
+                        text = "current font:",
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = customFontNameState.value ?: "Default Monospace",
+                        text = customFontNameState.value ?: "default monospace",
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
                         color = activeAccent
@@ -537,7 +537,7 @@ fun SettingsScreen(
                         },
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Import Font")
+                        Text("import font")
                     }
 
                     if (customFontNameState.value != null) {
@@ -551,7 +551,7 @@ fun SettingsScreen(
                             },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Reset")
+                            Text("reset")
                         }
                     }
                 }
@@ -567,12 +567,12 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "Layout & Padding",
+                    text = "layout & padding",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "Adjust the bottom chin space to accommodate your device's screen size or navigation mode.",
+                    text = "adjust the bottom chin space to accommodate your device's screen size or navigation mode.",
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -583,7 +583,7 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Bottom Chin Padding",
+                        text = "bottom chin padding",
                         fontWeight = FontWeight.Medium
                     )
                     val highlightColorState = preferences.highlightColorLong.collectAsState(initial = 0xFF001FFF)
@@ -676,14 +676,14 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "Test Input",
+                    text = "test input",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
                 OutlinedTextField(
                     value = testInputText,
                     onValueChange = { testInputText = it },
-                    placeholder = { Text("Tap here to test padding and input") },
+                    placeholder = { Text("tap here to test padding and input") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -956,7 +956,7 @@ fun StatusCard(
             ) {
                 Column {
                     Text(
-                        text = "Keyboard Status",
+                        text = "keyboard status",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -983,13 +983,13 @@ fun StatusCard(
                     onClick = { openSystemImeSettings(context) },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("System Settings")
+                    Text("system settings")
                 }
                 OutlinedButton(
                     onClick = { openInputLanguagesSettings(context) },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Input Languages")
+                    Text("input languages")
                 }
             }
 
@@ -1000,7 +1000,7 @@ fun StatusCard(
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Switch Active")
+                Text("switch active")
             }
         }
     }
@@ -1119,18 +1119,18 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Key Mapping", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) },
+                title = { Text("key mapping", fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     TextButton(onClick = onNavigateBack) {
-                        Text("Back")
+                        Text("back")
                     }
                 },
                 actions = {
                     TextButton(onClick = { importLauncher.launch(arrayOf("application/json", "text/*")) }) {
-                        Text("Import")
+                        Text("import")
                     }
                     TextButton(onClick = { exportLauncher.launch("w_keyboard_backup.json") }) {
-                        Text("Export")
+                        Text("export")
                     }
                     TextButton(onClick = {
                         layoutConfig = DefaultLayout.create(context)
@@ -1138,7 +1138,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                             preferences.clearLayoutConfigJson()
                         }
                     }) {
-                        Text("Reset")
+                        Text("reset")
                     }
                 }
             )
@@ -1154,7 +1154,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "Select a keycap above to customize its bindings:",
+                text = "select a keycap above to customize its bindings:",
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1244,7 +1244,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Text(
-                            text = "Editing: ${selectedKey.id}",
+                            text = "editing: ${selectedKey.id}",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
@@ -1258,7 +1258,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                         when (selectedKey.type) {
                             KeyType.SHIFT -> {
                                 ModifierDisplayField(
-                                    label = "Shift Disable",
+                                    label = "shift disable",
                                     value = selectedKey.displayLabel ?: "",
                                     placeholder = "text or SVG",
                                     onValueChange = { v ->
@@ -1271,7 +1271,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                     }
                                 )
                                 ModifierDisplayField(
-                                    label = "Shift Enable",
+                                    label = "shift enable",
                                     value = selectedKey.shiftOnDisplay ?: "",
                                     placeholder = "text or SVG",
                                     onValueChange = { v ->
@@ -1284,7 +1284,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                     }
                                 )
                                 ModifierDisplayField(
-                                    label = "Caps Lock",
+                                    label = "caps lock",
                                     value = selectedKey.capsLockDisplay ?: "",
                                     placeholder = "text or SVG",
                                     onValueChange = { v ->
@@ -1297,7 +1297,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                     }
                                 )
                                 ModifierDisplayField(
-                                    label = "Tab (Hold Shift)",
+                                    label = "tab (hold shift)",
                                     value = selectedKey.tabDisplay ?: "",
                                     placeholder = "tab or SVG",
                                     onValueChange = { v ->
@@ -1310,7 +1310,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                     }
                                 )
                                 ModifierDisplayField(
-                                    label = "Escape (Hold Shift)",
+                                    label = "escape (hold shift)",
                                     value = selectedKey.escDisplay ?: "",
                                     placeholder = "esc or SVG",
                                     onValueChange = { v ->
@@ -1325,7 +1325,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                             }
                             KeyType.BACKSPACE -> {
                                 ModifierDisplayField(
-                                    label = "Backspace",
+                                    label = "backspace",
                                     value = selectedKey.displayLabel ?: "",
                                     placeholder = "text or SVG",
                                     onValueChange = { v ->
@@ -1338,7 +1338,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                     }
                                 )
                                 ModifierDisplayField(
-                                    label = "Delete",
+                                    label = "delete",
                                     value = selectedKey.deleteDisplay ?: "",
                                     placeholder = "text or SVG",
                                     onValueChange = { v ->
@@ -1353,9 +1353,9 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                             }
                             KeyType.MODIFIER -> {
                                 val modLabel = when (selectedKey.id) {
-                                    "ctrl" -> "Control Display / SVG"
-                                    "alt" -> "Alt Display / SVG"
-                                    else -> "Display / SVG"
+                                    "ctrl" -> "control display / SVG"
+                                    "alt" -> "alt display / SVG"
+                                    else -> "display / SVG"
                                 }
                                 ModifierDisplayField(
                                     label = modLabel,
@@ -1377,7 +1377,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                         ?: (if (langKey == "en") selectedKey.displayLabel else null)
                                         ?: ""
                                     ModifierDisplayField(
-                                        label = "$langLabel Display / SVG",
+                                        label = "$langLabel display / SVG",
                                         value = currentVal,
                                         placeholder = "$langKey or SVG",
                                         onValueChange = { v ->
@@ -1417,7 +1417,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                             }
                             KeyType.ENTER -> {
                                 ModifierDisplayField(
-                                    label = "Enter Display / SVG",
+                                    label = "enter display / SVG",
                                     value = selectedKey.displayLabel ?: "",
                                     placeholder = "text or SVG",
                                     onValueChange = { v ->
@@ -1448,7 +1448,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Text(
-                            text = "Editing: '${selectedKey.primaryChar}'",
+                            text = "editing: '${selectedKey.primaryChar}'",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
@@ -1459,14 +1459,14 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                             onValueChange = { newChar ->
                                 updateSelectedKey { it.copy(primaryChar = newChar) }
                             },
-                            label = { Text("Primary Key / Macro Payload") },
+                            label = { Text("primary key / macro payload") },
                             placeholder = { Text("e.g. 'c' or 'Ctrl+C' or code snippet") },
                             modifier = Modifier.fillMaxWidth()
                         )
 
                         val isPrimaryDisplayEnabled = selectedKey.primaryChar.isNotEmpty() || !selectedKey.displayLabel.isNullOrEmpty()
                         ModifierDisplayField(
-                            label = "Keycap Display Label (Optional)",
+                            label = "keycap display label (optional)",
                             value = selectedKey.displayLabel ?: "",
                             placeholder = "e.g. 'COPY' or SVG",
                             enabled = isPrimaryDisplayEnabled,
@@ -1487,14 +1487,14 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                 onValueChange = { newShiftChar ->
                                     updateSelectedKey { it.copy(shiftPrimaryChar = newShiftChar.ifEmpty { null }) }
                                 },
-                                label = { Text("Shift Primary Key / Macro Payload (Optional)") },
+                                label = { Text("shift primary key / macro payload (optional)") },
                                 placeholder = { Text("e.g. '#' or 'Ctrl+C'") },
                                 modifier = Modifier.fillMaxWidth()
                             )
 
                             val isShiftDisplayEnabled = !selectedKey.shiftPrimaryChar.isNullOrEmpty() || !selectedKey.shiftDisplayLabel.isNullOrEmpty()
                             ModifierDisplayField(
-                                label = "Shift Keycap Display Label (Optional)",
+                                label = "shift keycap display label (optional)",
                                 value = selectedKey.shiftDisplayLabel ?: "",
                                 placeholder = "e.g. '#' or SVG",
                                 enabled = isShiftDisplayEnabled,
@@ -1512,13 +1512,13 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                         HorizontalDivider()
 
                         Text(
-                            text = "Directional Secondaries (Plus Pattern)",
+                            text = "directional secondaries (plus pattern)",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold
                         )
 
                         SecondaryDirectionEditor(
-                            title = "Center (Default Hold / Corner Hint)",
+                            title = "center (default hold / corner hint)",
                             contentValue = sec.center ?: selectedKey.hint ?: "",
                             onContentChange = { newContent ->
                                 val cleaned = newContent.ifEmpty { null }
@@ -1559,7 +1559,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                         )
 
                         SecondaryDirectionEditor(
-                            title = "Swipe Up",
+                            title = "swipe up",
                             contentValue = sec.top ?: "",
                             onContentChange = { newTop ->
                                 updateSelectedKey {
@@ -1582,7 +1582,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                         )
 
                         SecondaryDirectionEditor(
-                            title = "Swipe Down",
+                            title = "swipe down",
                             contentValue = sec.bottom ?: "",
                             onContentChange = { newBottom ->
                                 updateSelectedKey {
@@ -1605,7 +1605,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                         )
 
                         SecondaryDirectionEditor(
-                            title = if (isFirstColumn) "Swipe Left (Edge disabled)" else "Swipe Left",
+                            title = if (isFirstColumn) "swipe left (edge disabled)" else "swipe left",
                             contentValue = if (isFirstColumn) "" else (sec.left ?: ""),
                             onContentChange = { newLeft ->
                                 if (!isFirstColumn) {
@@ -1633,7 +1633,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                         )
 
                         SecondaryDirectionEditor(
-                            title = if (isLastColumn) "Swipe Right (Edge disabled)" else "Swipe Right",
+                            title = if (isLastColumn) "swipe right (edge disabled)" else "swipe right",
                             contentValue = if (isLastColumn) "" else (sec.right ?: ""),
                             onContentChange = { newRight ->
                                 if (!isLastColumn) {
@@ -1768,7 +1768,7 @@ fun ModifierDisplayField(
                                 modifier = Modifier.height(28.dp)
                             ) {
                                 Text(
-                                    text = if (effectiveCollapsed) "Expand" else "Shrink",
+                                    text = if (effectiveCollapsed) "expand" else "shrink",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -1779,7 +1779,7 @@ fun ModifierDisplayField(
                             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                             modifier = Modifier.height(28.dp)
                         ) {
-                            Text("Open SVG", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("open SVG", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -1841,7 +1841,7 @@ fun SecondaryDirectionEditor(
                                 modifier = Modifier.height(28.dp)
                             ) {
                                 Text(
-                                    text = if (effectiveCollapsed) "Expand" else "Shrink",
+                                    text = if (effectiveCollapsed) "expand" else "shrink",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -1852,7 +1852,7 @@ fun SecondaryDirectionEditor(
                             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                             modifier = Modifier.height(28.dp)
                         ) {
-                            Text("Open SVG", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("open SVG", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -1865,8 +1865,8 @@ fun SecondaryDirectionEditor(
                     value = if (enabled) contentValue else "",
                     onValueChange = onContentChange,
                     enabled = enabled,
-                    label = { Text("Payload / Macro") },
-                    placeholder = { Text("Symbol or macro") },
+                    label = { Text("payload / macro") },
+                    placeholder = { Text("symbol or macro") },
                     modifier = Modifier.weight(1f)
                 )
                 OutlinedTextField(
@@ -1875,8 +1875,8 @@ fun SecondaryDirectionEditor(
                     enabled = isDisplayEnabled,
                     singleLine = effectiveCollapsed,
                     maxLines = if (effectiveCollapsed) 1 else Int.MAX_VALUE,
-                    label = { Text("Display / SVG") },
-                    placeholder = { Text("Label or SVG") },
+                    label = { Text("display / SVG") },
+                    placeholder = { Text("label or SVG") },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -1902,12 +1902,12 @@ fun ThemePickerCard(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Keyboard Theme",
+                text = "keyboard theme",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = "Choose between follow device, black, white, or Material dynamic colors.",
+                text = "choose between follow device, black, white, or Material dynamic colors.",
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1968,12 +1968,12 @@ fun ColorPickerCard(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
-                text = "Highlight Color",
+                text = "highlight color",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = "Enter any 6-digit hex code to customize the active modifiers and popup highlight.",
+                text = "enter any 6-digit hex code to customize the active modifiers and popup highlight.",
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1988,7 +1988,7 @@ fun ColorPickerCard(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Sample Key $hexCode",
+                    text = "sample key $hexCode",
                     color = onColor,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
@@ -2008,7 +2008,7 @@ fun ColorPickerCard(
                         }
                     }
                 },
-                label = { Text("Hex Color Code") },
+                label = { Text("hex color code") },
                 placeholder = { Text("#RRGGBB") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()

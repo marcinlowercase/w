@@ -3,10 +3,10 @@ package marcinlowercase.w.model
 import kotlinx.serialization.Serializable
 
 enum class KeyboardThemeMode(val key: String, val label: String) {
-    SYSTEM("system", "Follow Device"),
-    BLACK("black", "Black"),
-    WHITE("white", "White"),
-    MATERIAL("material", "Material")
+    SYSTEM("system", "follow device"),
+    BLACK("black", "black"),
+    WHITE("white", "white"),
+    MATERIAL("material", "material")
 }
 
 enum class ShiftState {
