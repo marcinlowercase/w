@@ -268,14 +268,19 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
         updateBrowserDesign()
     }
 
-    private fun updateBrowserDesign() {
+    private fun updateBrowserDesign(orientation: Int = resources.configuration.orientation) {
         val design = readBrowserDesign(this, currentTargetPackageName)
+        val isLandscape = orientation == Configuration.ORIENTATION_LANDSCAPE
         val isTargetBrowser = currentTargetPackageName in listOf("studio.oo1.browser", "marcinlowercase.a")
         val isOutsyncActive = viewModel.outsyncEnabled.value && isTargetBrowser && design != null
 
         if (isOutsyncActive) {
-            val isSharp = design!!.sharpMode == 2
-            viewModel.topCornerRadiusDp.value = if (isSharp) 0f else design.hardwareCornerRadius.coerceAtLeast(0f)
+            val showCorner = if (isLandscape) {
+                design!!.sharpMode == 0
+            } else {
+                design!!.sharpMode != 2
+            }
+            viewModel.topCornerRadiusDp.value = if (showCorner) design.hardwareCornerRadius.coerceAtLeast(0f) else 0f
             viewModel.topExtraPaddingDp.value = design.padding.coerceAtLeast(0f)
             if (design.isMaterialYou) {
                 viewModel.themeMode.value = KeyboardThemeMode.MATERIAL
@@ -285,7 +290,7 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
                 viewModel.highlightColor.value = Color(design.highlightColor)
             }
         } else {
-            if (viewModel.roundCornerEnabled.value && design != null) {
+            if (!isLandscape && viewModel.roundCornerEnabled.value && design != null) {
                 viewModel.topCornerRadiusDp.value = design.hardwareCornerRadius.coerceAtLeast(0f)
             } else {
                 viewModel.topCornerRadiusDp.value = 0f
@@ -360,9 +365,7 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        window?.window?.let { win ->
-            applyNavigationBarTheme(win)
-        }
+        updateBrowserDesign(newConfig.orientation)
     }
 
     private fun loadFontFamilyFromPath(path: String?): FontFamily {
