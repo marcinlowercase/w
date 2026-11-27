@@ -1165,6 +1165,14 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                         base
                     }
                 }
+                KeyType.CHARACTER -> {
+                    val isNumberKey = liveKey.primaryChar.isNotEmpty() && liveKey.primaryChar.all { it.isDigit() }
+                    if (isSingleShifted && isNumberKey && !liveKey.shiftPrimaryChar.isNullOrEmpty()) {
+                        liveKey.shiftDisplayLabel ?: liveKey.shiftPrimaryChar
+                    } else {
+                        liveKey.displayLabel ?: displayedChar
+                    }
+                }
                 else -> liveKey.displayLabel ?: displayedChar
             }
 
@@ -1243,7 +1251,12 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                     .padding(primaryPopupMargin),
                 contentAlignment = Alignment.Center
             ) {
-                val previewLabel = key.displayLabel ?: displayedChar
+                val isNumberKey = liveKey.primaryChar.isNotEmpty() && liveKey.primaryChar.all { it.isDigit() }
+                val previewLabel = if (isSingleShifted && isNumberKey && !liveKey.shiftPrimaryChar.isNullOrEmpty()) {
+                    liveKey.shiftDisplayLabel ?: liveKey.shiftPrimaryChar
+                } else {
+                    liveKey.displayLabel ?: displayedChar
+                }
                 val previewFontSize = when (previewLabel.length) {
                     0, 1 -> 26.sp
                     2 -> 20.sp

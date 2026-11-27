@@ -71,6 +71,8 @@ data class KeyDefinition(
     val id: String,
     val primaryChar: String,
     val displayLabel: String? = null,
+    val shiftPrimaryChar: String? = null,
+    val shiftDisplayLabel: String? = null,
     val shiftOnDisplay: String? = null,
     val capsLockDisplay: String? = null,
     val tabDisplay: String? = null,

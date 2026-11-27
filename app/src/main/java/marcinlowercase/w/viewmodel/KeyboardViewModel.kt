@@ -77,24 +77,13 @@ class KeyboardViewModel : ViewModel() {
         val isSingleShifted = shiftState.value == ShiftState.SHIFTED
 
         return if (key.type == KeyType.CHARACTER) {
+            val isNumberKey = key.primaryChar.isNotEmpty() && key.primaryChar.all { it.isDigit() }
             when {
                 key.primaryChar.length == 1 && key.primaryChar[0].isLetter() && isShiftOn -> {
                     key.primaryChar.uppercase()
                 }
-                isSingleShifted -> {
-                    when (key.primaryChar) {
-                        "1" -> "!"
-                        "2" -> "@"
-                        "3" -> "#"
-                        "4" -> "$"
-                        "5" -> "%"
-                        "6" -> "^"
-                        "7" -> "&"
-                        "8" -> "*"
-                        "9" -> "("
-                        "0" -> ")"
-                        else -> key.primaryChar
-                    }
+                isSingleShifted && isNumberKey && !key.shiftPrimaryChar.isNullOrEmpty() -> {
+                    key.shiftPrimaryChar
                 }
                 else -> key.primaryChar
             }
@@ -198,8 +187,13 @@ class KeyboardViewModel : ViewModel() {
             return true
         }
 
-        if (isMacroCommand(key.primaryChar)) {
-            executeMacro(key.primaryChar)
+        val resolvedPayload = resolveDisplayedChar(key)
+        if (isMacroCommand(resolvedPayload)) {
+            executeMacro(resolvedPayload)
+            ctrlArmed.value = false
+            ctrlShiftArmed.value = false
+            altArmed.value = false
+            altShiftArmed.value = false
             if (shiftState.value == ShiftState.SHIFTED) {
                 shiftState.value = ShiftState.OFF
             }
@@ -213,12 +207,14 @@ class KeyboardViewModel : ViewModel() {
         if (altArmed.value) {
             metaState = metaState or android.view.KeyEvent.META_ALT_ON or android.view.KeyEvent.META_ALT_LEFT_ON
         }
-        if (ctrlShiftArmed.value || altShiftArmed.value || shiftState.value == ShiftState.SHIFTED) {
+        val hadCtrlOrAlt = ctrlArmed.value || altArmed.value
+        val applyShiftMeta = ctrlShiftArmed.value || altShiftArmed.value ||
+            (shiftState.value == ShiftState.SHIFTED && (hadCtrlOrAlt || key.type != KeyType.CHARACTER))
+        if (applyShiftMeta) {
             metaState = metaState or android.view.KeyEvent.META_SHIFT_ON or android.view.KeyEvent.META_SHIFT_LEFT_ON
         }
 
-        val hadCtrlOrAlt = ctrlArmed.value || altArmed.value
-        val resolved = key.copy(primaryChar = resolveDisplayedChar(key))
+        val resolved = key.copy(primaryChar = resolvedPayload)
         val handled = onKeyPressHandler?.invoke(resolved, metaState) ?: false
 
         if (ctrlArmed.value) {

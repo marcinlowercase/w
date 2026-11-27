@@ -1123,6 +1123,45 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                             modifier = Modifier.fillMaxWidth()
                         )
 
+                        val isNumberKey = selectedKey.primaryChar.isNotEmpty() && selectedKey.primaryChar.all { it.isDigit() }
+                        if (isNumberKey) {
+                            OutlinedTextField(
+                                value = selectedKey.shiftPrimaryChar ?: "",
+                                onValueChange = { newShiftChar ->
+                                    updateSelectedKey { it.copy(shiftPrimaryChar = newShiftChar.ifEmpty { null }) }
+                                },
+                                label = { Text("Shift Primary Key / Macro Payload (Optional)") },
+                                placeholder = { Text("e.g. '#' or 'Ctrl+C'") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            val isShiftDisplayEnabled = !selectedKey.shiftPrimaryChar.isNullOrEmpty() || !selectedKey.shiftDisplayLabel.isNullOrEmpty()
+                            OutlinedTextField(
+                                value = selectedKey.shiftDisplayLabel ?: "",
+                                onValueChange = { newShiftLabel ->
+                                    updateSelectedKey { it.copy(shiftDisplayLabel = newShiftLabel.ifEmpty { null }) }
+                                },
+                                enabled = isShiftDisplayEnabled,
+                                label = { Text("Shift Keycap Display Label (Optional)") },
+                                placeholder = { Text("e.g. '#' or SVG") },
+                                trailingIcon = if (isShiftDisplayEnabled) {
+                                    {
+                                        TextButton(
+                                            onClick = {
+                                                pickSvg { svgText ->
+                                                    updateSelectedKey { it.copy(shiftDisplayLabel = svgText.ifEmpty { null }) }
+                                                }
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 6.dp)
+                                        ) {
+                                            Text("Open SVG", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
+                                } else null,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
                         HorizontalDivider()
 
                         Text(
