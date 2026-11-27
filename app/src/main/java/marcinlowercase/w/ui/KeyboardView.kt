@@ -51,13 +51,21 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.asAndroidPath
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import java.util.Locale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.PathParser
@@ -246,29 +254,262 @@ fun isSvgOrPath(text: String?): Boolean {
             (trimmed.length > 2 && (trimmed.startsWith("M") || trimmed.startsWith("m")) && trimmed.any { it.isDigit() })
 }
 
-fun extractSvgPathData(raw: String): Pair<String, Float> {
-    val trimmed = raw.trim()
-    var viewport = 24f
+private data class ParsedSvgShape(
+    val path: Path,
+    val isFilled: Boolean,
+    val strokeWidth: Float?,
+    val strokeCap: StrokeCap = StrokeCap.Butt,
+    val strokeJoin: StrokeJoin = StrokeJoin.Miter,
+    val clipMaskPath: Path? = null
+)
 
-    val viewBoxRegex = Regex("""viewBox=["']\s*[\d.]+\s+[\d.]+\s+([\d.]+)\s+[\d.]+["']""")
+private data class ParsedSvg(
+    val width: Float,
+    val height: Float,
+    val shapes: List<ParsedSvgShape>
+)
+
+private fun sanitizePathData(rawPath: String): String {
+    val sciRegex = Regex("""[-+]?\d*\.?\d+[eE][-+]?\d+""")
+    return sciRegex.replace(rawPath) { match ->
+        val value = match.value.toDoubleOrNull() ?: 0.0
+        String.format(Locale.US, "%.6f", value)
+    }
+}
+
+private fun extractSvgAttr(attrs: String, name: String): String? {
+    val regex = Regex("""(?:^|\s)$name\s*=\s*["']([^"']*)["']""", RegexOption.IGNORE_CASE)
+    return regex.find(attrs)?.groupValues?.getOrNull(1)?.trim()
+}
+
+private fun parseSvgDocument(raw: String): ParsedSvg? {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return null
+
+    var vpWidth = 24f
+    var vpHeight = 24f
+    val viewBoxRegex = Regex(
+        """viewBox\s*=\s*["']\s*[-+]?[\d.]+\s+[-+]?[\d.]+\s+([\d.]+)\s+([\d.]+)\s*["']""",
+        RegexOption.IGNORE_CASE
+    )
     val viewBoxMatch = viewBoxRegex.find(trimmed)
     if (viewBoxMatch != null) {
-        val vp = viewBoxMatch.groupValues.getOrNull(1)?.toFloatOrNull()
-        if (vp != null && vp > 0f) {
-            viewport = vp
+        val w = viewBoxMatch.groupValues.getOrNull(1)?.toFloatOrNull()
+        val h = viewBoxMatch.groupValues.getOrNull(2)?.toFloatOrNull()
+        if (w != null && w > 0f && h != null && h > 0f) {
+            vpWidth = w
+            vpHeight = h
         }
     }
 
-    val dRegex = Regex("""d=["']([^"']+)["']""")
-    val dMatch = dRegex.find(trimmed)
-    val pathData = if (dMatch != null) {
-        dMatch.groupValues[1]
-    } else if (trimmed.startsWith("M") || trimmed.startsWith("m")) {
-        trimmed
-    } else {
-        ""
+    val svgOpenAttrs = Regex("""<svg\b([^>]*)>""", RegexOption.IGNORE_CASE)
+        .find(trimmed)?.groupValues?.getOrNull(1) ?: ""
+    if (viewBoxMatch == null && svgOpenAttrs.isNotEmpty()) {
+        val w = extractSvgAttr(svgOpenAttrs, "width")?.toFloatOrNull()
+        val h = extractSvgAttr(svgOpenAttrs, "height")?.toFloatOrNull()
+        if (w != null && w > 0f && h != null && h > 0f) {
+            vpWidth = w
+            vpHeight = h
+        }
     }
-    return Pair(pathData, viewport)
+
+    val rootFill = extractSvgAttr(svgOpenAttrs, "fill") ?: "black"
+    val rootStroke = extractSvgAttr(svgOpenAttrs, "stroke") ?: "none"
+    val rootStrokeWidth = extractSvgAttr(svgOpenAttrs, "stroke-width")?.toFloatOrNull() ?: 1f
+
+    val masks = mutableMapOf<String, Path>()
+    val maskBlockRegex = Regex(
+        """<mask\b([^>]*)>(.*?)</mask>""",
+        setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
+    )
+    val pathTagRegex = Regex("""<path\b([^>]*)>""", RegexOption.IGNORE_CASE)
+    maskBlockRegex.findAll(trimmed).forEach { match ->
+        val maskAttrs = match.groupValues[1]
+        val maskBody = match.groupValues[2]
+        val maskId = extractSvgAttr(maskAttrs, "id") ?: return@forEach
+        val combinedMaskPath = Path()
+        var hasMaskShape = false
+        pathTagRegex.findAll(maskBody).forEach { pMatch ->
+            val pAttrs = pMatch.groupValues[1].trimEnd('/')
+            val d = extractSvgAttr(pAttrs, "d") ?: return@forEach
+            runCatching {
+                val parser = PathParser()
+                parser.parsePathString(sanitizePathData(d))
+                combinedMaskPath.addPath(parser.toPath())
+                hasMaskShape = true
+            }
+        }
+        if (hasMaskShape) {
+            masks[maskId] = combinedMaskPath
+        }
+    }
+
+    val body = trimmed
+        .replace(maskBlockRegex, "")
+        .replace(
+            Regex("""<defs\b[^>]*>.*?</defs>""", setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)),
+            ""
+        )
+        .replace(
+            Regex("""<clipPath\b[^>]*>.*?</clipPath>""", setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)),
+            ""
+        )
+
+    val shapes = mutableListOf<ParsedSvgShape>()
+    val shapeRegex = Regex("""<(path|rect|circle|ellipse|line|polygon|polyline)\b([^>]*)>""", RegexOption.IGNORE_CASE)
+    shapeRegex.findAll(body).forEach { match ->
+        val tag = match.groupValues[1].lowercase()
+        val attrs = match.groupValues[2].trimEnd('/')
+
+        val path = when (tag) {
+            "path" -> {
+                val d = extractSvgAttr(attrs, "d") ?: return@forEach
+                runCatching {
+                    val parser = PathParser()
+                    parser.parsePathString(sanitizePathData(d))
+                    parser.toPath()
+                }.getOrNull() ?: return@forEach
+            }
+            "rect" -> {
+                val x = extractSvgAttr(attrs, "x")?.toFloatOrNull() ?: 0f
+                val y = extractSvgAttr(attrs, "y")?.toFloatOrNull() ?: 0f
+                val w = extractSvgAttr(attrs, "width")?.toFloatOrNull() ?: 0f
+                val h = extractSvgAttr(attrs, "height")?.toFloatOrNull() ?: 0f
+                val rx = extractSvgAttr(attrs, "rx")?.toFloatOrNull() ?: 0f
+                val ry = extractSvgAttr(attrs, "ry")?.toFloatOrNull() ?: rx
+                if (w <= 0f || h <= 0f) return@forEach
+                Path().apply {
+                    if (rx > 0f || ry > 0f) {
+                        addRoundRect(RoundRect(x, y, x + w, y + h, CornerRadius(rx, ry)))
+                    } else {
+                        addRect(Rect(x, y, x + w, y + h))
+                    }
+                }
+            }
+            "circle" -> {
+                val cx = extractSvgAttr(attrs, "cx")?.toFloatOrNull() ?: 0f
+                val cy = extractSvgAttr(attrs, "cy")?.toFloatOrNull() ?: 0f
+                val r = extractSvgAttr(attrs, "r")?.toFloatOrNull() ?: 0f
+                if (r <= 0f) return@forEach
+                Path().apply { addOval(Rect(cx - r, cy - r, cx + r, cy + r)) }
+            }
+            "ellipse" -> {
+                val cx = extractSvgAttr(attrs, "cx")?.toFloatOrNull() ?: 0f
+                val cy = extractSvgAttr(attrs, "cy")?.toFloatOrNull() ?: 0f
+                val rx = extractSvgAttr(attrs, "rx")?.toFloatOrNull() ?: 0f
+                val ry = extractSvgAttr(attrs, "ry")?.toFloatOrNull() ?: 0f
+                if (rx <= 0f || ry <= 0f) return@forEach
+                Path().apply { addOval(Rect(cx - rx, cy - ry, cx + rx, cy + ry)) }
+            }
+            "line" -> {
+                val x1 = extractSvgAttr(attrs, "x1")?.toFloatOrNull() ?: 0f
+                val y1 = extractSvgAttr(attrs, "y1")?.toFloatOrNull() ?: 0f
+                val x2 = extractSvgAttr(attrs, "x2")?.toFloatOrNull() ?: 0f
+                val y2 = extractSvgAttr(attrs, "y2")?.toFloatOrNull() ?: 0f
+                Path().apply {
+                    moveTo(x1, y1)
+                    lineTo(x2, y2)
+                }
+            }
+            "polygon", "polyline" -> {
+                val pointsRaw = extractSvgAttr(attrs, "points") ?: return@forEach
+                val nums = Regex("""[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?""")
+                    .findAll(pointsRaw)
+                    .mapNotNull { it.value.toFloatOrNull() }
+                    .toList()
+                if (nums.size < 4) return@forEach
+                Path().apply {
+                    moveTo(nums[0], nums[1])
+                    var i = 2
+                    while (i + 1 < nums.size) {
+                        lineTo(nums[i], nums[i + 1])
+                        i += 2
+                    }
+                    if (tag == "polygon") close()
+                }
+            }
+            else -> return@forEach
+        }
+
+        val transformAttr = extractSvgAttr(attrs, "transform")
+        if (!transformAttr.isNullOrEmpty()) {
+            val matrix = android.graphics.Matrix()
+            val fnRegex = Regex("""(rotate|translate|scale)\s*\(([^)]*)\)""", RegexOption.IGNORE_CASE)
+            fnRegex.findAll(transformAttr).forEach { tMatch ->
+                val fn = tMatch.groupValues[1].lowercase()
+                val args = Regex("""[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?""")
+                    .findAll(tMatch.groupValues[2])
+                    .mapNotNull { it.value.toFloatOrNull() }
+                    .toList()
+                when (fn) {
+                    "rotate" -> if (args.size >= 3) {
+                        matrix.preRotate(args[0], args[1], args[2])
+                    } else if (args.size == 1) {
+                        matrix.preRotate(args[0])
+                    }
+                    "translate" -> if (args.size >= 2) {
+                        matrix.preTranslate(args[0], args[1])
+                    } else if (args.size == 1) {
+                        matrix.preTranslate(args[0], 0f)
+                    }
+                    "scale" -> if (args.size >= 2) {
+                        matrix.preScale(args[0], args[1])
+                    } else if (args.size == 1) {
+                        matrix.preScale(args[0], args[0])
+                    }
+                }
+            }
+            path.asAndroidPath().transform(matrix)
+        }
+
+        val fillAttr = extractSvgAttr(attrs, "fill") ?: rootFill
+        val strokeAttr = extractSvgAttr(attrs, "stroke") ?: rootStroke
+        val strokeWidthAttr = extractSvgAttr(attrs, "stroke-width")?.toFloatOrNull() ?: rootStrokeWidth
+        val strokeCap = when (extractSvgAttr(attrs, "stroke-linecap")?.lowercase()) {
+            "round" -> StrokeCap.Round
+            "square" -> StrokeCap.Square
+            else -> StrokeCap.Butt
+        }
+        val strokeJoin = when (extractSvgAttr(attrs, "stroke-linejoin")?.lowercase()) {
+            "round" -> StrokeJoin.Round
+            "bevel" -> StrokeJoin.Bevel
+            else -> StrokeJoin.Miter
+        }
+
+        val isFilled = !fillAttr.equals("none", ignoreCase = true) && !fillAttr.equals("transparent", ignoreCase = true)
+        val strokeWidth = if (!strokeAttr.equals("none", ignoreCase = true) && !strokeAttr.equals("transparent", ignoreCase = true)) {
+            strokeWidthAttr
+        } else {
+            null
+        }
+
+        val maskAttr = extractSvgAttr(attrs, "mask")
+        val maskId = maskAttr?.let { Regex("""url\(#([^)]+)\)""").find(it)?.groupValues?.getOrNull(1) }
+        val clipMaskPath = maskId?.let { masks[it] }
+
+        if (isFilled || (strokeWidth != null && strokeWidth > 0f)) {
+            shapes.add(
+                ParsedSvgShape(
+                    path = path,
+                    isFilled = isFilled,
+                    strokeWidth = strokeWidth,
+                    strokeCap = strokeCap,
+                    strokeJoin = strokeJoin,
+                    clipMaskPath = clipMaskPath
+                )
+            )
+        }
+    }
+
+    if (shapes.isEmpty() && (trimmed.startsWith("M") || trimmed.startsWith("m"))) {
+        runCatching {
+            val parser = PathParser()
+            parser.parsePathString(sanitizePathData(trimmed))
+            shapes.add(ParsedSvgShape(path = parser.toPath(), isFilled = true, strokeWidth = null))
+        }
+    }
+
+    return if (shapes.isEmpty()) null else ParsedSvg(vpWidth, vpHeight, shapes)
 }
 
 @Composable
@@ -278,25 +519,41 @@ fun SvgPathIcon(
     modifier: Modifier = Modifier.size(20.dp)
 ) {
     val parsed = remember(raw) {
-        val (pathData, viewport) = extractSvgPathData(raw)
-        try {
-            val parser = PathParser()
-            parser.parsePathString(pathData)
-            Pair(parser.toPath(), viewport)
-        } catch (_: Exception) {
-            null
-        }
+        parseSvgDocument(raw)
     }
 
     if (parsed != null) {
-        val (path, viewport) = parsed
         Canvas(modifier = modifier) {
-            val scaleFactor = size.minDimension / viewport
-            val offsetX = (size.width - (viewport * scaleFactor)) / 2f
-            val offsetY = (size.height - (viewport * scaleFactor)) / 2f
+            val scaleFactor = minOf(size.width / parsed.width, size.height / parsed.height)
+            val offsetX = (size.width - (parsed.width * scaleFactor)) / 2f
+            val offsetY = (size.height - (parsed.height * scaleFactor)) / 2f
             translate(left = offsetX, top = offsetY) {
                 scale(scaleX = scaleFactor, scaleY = scaleFactor, pivot = Offset.Zero) {
-                    drawPath(path = path, color = tint)
+                    parsed.shapes.forEach { shape ->
+                        val drawShape = {
+                            if (shape.isFilled) {
+                                drawPath(path = shape.path, color = tint)
+                            }
+                            if (shape.strokeWidth != null && shape.strokeWidth > 0f) {
+                                drawPath(
+                                    path = shape.path,
+                                    color = tint,
+                                    style = Stroke(
+                                        width = shape.strokeWidth,
+                                        cap = shape.strokeCap,
+                                        join = shape.strokeJoin
+                                    )
+                                )
+                            }
+                        }
+                        if (shape.clipMaskPath != null) {
+                            clipPath(path = shape.clipMaskPath) {
+                                drawShape()
+                            }
+                        } else {
+                            drawShape()
+                        }
+                    }
                 }
             }
         }
