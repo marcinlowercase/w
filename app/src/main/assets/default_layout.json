@@ -211,6 +211,11 @@
                 {
                     "id": "shift",
                     "primaryChar": "⇧",
+                    "displayLabel": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M8,21V13H3L12,2L16.5,7.5L21,13H16V21H8ZM10,19H14V11H16.78L12,5.15L7.23,11H10V19Z\"/></svg>",
+                    "shiftOnDisplay": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M8,21V13H3L12,2L16.5,7.5L21,13H16V21H8Z\"/></svg>",
+                    "capsLockDisplay": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M8,17V13H3L12,2L16.5,7.5L21,13H16V17H8Z\"/><path d=\"M8,19V21H16V19H8Z\"/></svg>",
+                    "tabDisplay": "tab",
+                    "escDisplay": "esc",
                     "type": "SHIFT",
                     "weight": 1.5
                 },
@@ -267,6 +272,8 @@
                 {
                     "id": "backspace",
                     "primaryChar": "⌫",
+                    "displayLabel": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path fill-rule=\"evenodd\" d=\"M8,20L2,12L8,4H22V20L8,20ZM9,18L4.5,12L9,6H20V18H9Z\"/><path d=\"M14,13.4L11.4,16L10,14.6L12.6,12L10,9.4L11.4,8L14,10.6L16.6,8L18,9.4L15.4,12L18,14.6L16.6,16L14,13.4Z\"/></svg>",
+                    "deleteDisplay": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path fill-rule=\"evenodd\" d=\"M16,20L22,12L16,4H2V20L16,20ZM15,18L19.5,12L15,6H4V18H15Z\"/><path d=\"M10,13.4L12.6,16L14,14.6L11.4,12L14,9.4L12.6,8L10,10.6L7.4,8L6,9.4L8.6,12L6,14.6L7.4,16L10,13.4Z\"/></svg>",
                     "type": "BACKSPACE",
                     "weight": 1.5
                 }
@@ -277,24 +284,28 @@
                 {
                     "id": "ctrl",
                     "primaryChar": "CTRL",
+                    "displayLabel": "ctrl",
                     "type": "MODIFIER",
                     "weight": 1.5
                 },
                 {
                     "id": "alt",
                     "primaryChar": "ALT",
+                    "displayLabel": "alt",
                     "type": "MODIFIER",
                     "weight": 1.5
                 },
                 {
                     "id": "space",
                     "primaryChar": " ",
+                    "displayLabel": "space",
                     "type": "SPACE",
                     "weight": 5.5
                 },
                 {
                     "id": "enter",
                     "primaryChar": "↵",
+                    "displayLabel": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M9,18L3,12L9,6L10.4,7.4L6.8,11H19V7H21V13H6.8L10.4,16.6L9,18Z\"/></svg>",
                     "type": "ENTER",
                     "weight": 1.5
                 }

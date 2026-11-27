@@ -841,18 +841,18 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                 if (key.type == KeyType.SPACER) {
                                     Spacer(modifier = Modifier.weight(key.weight))
                                 } else {
+                                    val isSelectable = key.type != KeyType.SPACER
                                     val isCharacterKey = key.type == KeyType.CHARACTER
-                                    val isSelected = isCharacterKey && key.id == selectedKeyId
+                                    val isSelected = isSelectable && key.id == selectedKeyId
                                     val onAccent = if (activeAccent.luminance() > 0.5f) Color.Black else Color.White
                                     val keyBg = when {
                                         isSelected -> activeAccent
                                         isCharacterKey -> MaterialTheme.colorScheme.surfaceVariant
-                                        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                                     }
                                     val textColor = when {
                                         isSelected -> onAccent
-                                        isCharacterKey -> MaterialTheme.colorScheme.onSurfaceVariant
-                                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
                                     }
 
                                     Box(
@@ -866,7 +866,7 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                                                 if (isSelected) Color.White else MaterialTheme.colorScheme.outlineVariant,
                                                 RoundedCornerShape(6.dp)
                                             )
-                                            .clickable(enabled = isCharacterKey) {
+                                            .clickable(enabled = isSelectable) {
                                                 selectedKeyId = key.id
                                             },
                                         contentAlignment = Alignment.Center
@@ -896,7 +896,178 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                 }
             }
 
-            if (selectedKey != null && selectedKey.type == KeyType.CHARACTER) {
+            if (selectedKey != null && selectedKey.type != KeyType.CHARACTER && selectedKey.type != KeyType.SPACER) {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Text(
+                            text = "Editing: ${selectedKey.id}",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = "payload is locked for modification keys. customize display text or SVG below.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        when (selectedKey.type) {
+                            KeyType.SHIFT -> {
+                                ModifierDisplayField(
+                                    label = "Shift Disable",
+                                    value = selectedKey.displayLabel ?: "",
+                                    placeholder = "text or SVG",
+                                    onValueChange = { v ->
+                                        updateSelectedKey { it.copy(displayLabel = v.ifEmpty { null }) }
+                                    },
+                                    onPickSvg = {
+                                        pickSvg { svg ->
+                                            updateSelectedKey { it.copy(displayLabel = svg.ifEmpty { null }) }
+                                        }
+                                    }
+                                )
+                                ModifierDisplayField(
+                                    label = "Shift Enable",
+                                    value = selectedKey.shiftOnDisplay ?: "",
+                                    placeholder = "text or SVG",
+                                    onValueChange = { v ->
+                                        updateSelectedKey { it.copy(shiftOnDisplay = v.ifEmpty { null }) }
+                                    },
+                                    onPickSvg = {
+                                        pickSvg { svg ->
+                                            updateSelectedKey { it.copy(shiftOnDisplay = svg.ifEmpty { null }) }
+                                        }
+                                    }
+                                )
+                                ModifierDisplayField(
+                                    label = "Caps Lock",
+                                    value = selectedKey.capsLockDisplay ?: "",
+                                    placeholder = "text or SVG",
+                                    onValueChange = { v ->
+                                        updateSelectedKey { it.copy(capsLockDisplay = v.ifEmpty { null }) }
+                                    },
+                                    onPickSvg = {
+                                        pickSvg { svg ->
+                                            updateSelectedKey { it.copy(capsLockDisplay = svg.ifEmpty { null }) }
+                                        }
+                                    }
+                                )
+                                ModifierDisplayField(
+                                    label = "Tab (Hold Shift)",
+                                    value = selectedKey.tabDisplay ?: "",
+                                    placeholder = "tab or SVG",
+                                    onValueChange = { v ->
+                                        updateSelectedKey { it.copy(tabDisplay = v.ifEmpty { null }) }
+                                    },
+                                    onPickSvg = {
+                                        pickSvg { svg ->
+                                            updateSelectedKey { it.copy(tabDisplay = svg.ifEmpty { null }) }
+                                        }
+                                    }
+                                )
+                                ModifierDisplayField(
+                                    label = "Escape (Hold Shift)",
+                                    value = selectedKey.escDisplay ?: "",
+                                    placeholder = "esc or SVG",
+                                    onValueChange = { v ->
+                                        updateSelectedKey { it.copy(escDisplay = v.ifEmpty { null }) }
+                                    },
+                                    onPickSvg = {
+                                        pickSvg { svg ->
+                                            updateSelectedKey { it.copy(escDisplay = svg.ifEmpty { null }) }
+                                        }
+                                    }
+                                )
+                            }
+                            KeyType.BACKSPACE -> {
+                                ModifierDisplayField(
+                                    label = "Backspace",
+                                    value = selectedKey.displayLabel ?: "",
+                                    placeholder = "text or SVG",
+                                    onValueChange = { v ->
+                                        updateSelectedKey { it.copy(displayLabel = v.ifEmpty { null }) }
+                                    },
+                                    onPickSvg = {
+                                        pickSvg { svg ->
+                                            updateSelectedKey { it.copy(displayLabel = svg.ifEmpty { null }) }
+                                        }
+                                    }
+                                )
+                                ModifierDisplayField(
+                                    label = "Delete",
+                                    value = selectedKey.deleteDisplay ?: "",
+                                    placeholder = "text or SVG",
+                                    onValueChange = { v ->
+                                        updateSelectedKey { it.copy(deleteDisplay = v.ifEmpty { null }) }
+                                    },
+                                    onPickSvg = {
+                                        pickSvg { svg ->
+                                            updateSelectedKey { it.copy(deleteDisplay = svg.ifEmpty { null }) }
+                                        }
+                                    }
+                                )
+                            }
+                            KeyType.MODIFIER -> {
+                                val modLabel = when (selectedKey.id) {
+                                    "ctrl" -> "Control Display / SVG"
+                                    "alt" -> "Alt Display / SVG"
+                                    else -> "Display / SVG"
+                                }
+                                ModifierDisplayField(
+                                    label = modLabel,
+                                    value = selectedKey.displayLabel ?: "",
+                                    placeholder = "${selectedKey.id} or SVG",
+                                    onValueChange = { v ->
+                                        updateSelectedKey { it.copy(displayLabel = v.ifEmpty { null }) }
+                                    },
+                                    onPickSvg = {
+                                        pickSvg { svg ->
+                                            updateSelectedKey { it.copy(displayLabel = svg.ifEmpty { null }) }
+                                        }
+                                    }
+                                )
+                            }
+                            KeyType.SPACE -> {
+                                ModifierDisplayField(
+                                    label = "Space Display / SVG",
+                                    value = selectedKey.displayLabel ?: "",
+                                    placeholder = "space or SVG",
+                                    onValueChange = { v ->
+                                        updateSelectedKey { it.copy(displayLabel = v.ifEmpty { null }) }
+                                    },
+                                    onPickSvg = {
+                                        pickSvg { svg ->
+                                            updateSelectedKey { it.copy(displayLabel = svg.ifEmpty { null }) }
+                                        }
+                                    }
+                                )
+                            }
+                            KeyType.ENTER -> {
+                                ModifierDisplayField(
+                                    label = "Enter Display / SVG",
+                                    value = selectedKey.displayLabel ?: "",
+                                    placeholder = "text or SVG",
+                                    onValueChange = { v ->
+                                        updateSelectedKey { it.copy(displayLabel = v.ifEmpty { null }) }
+                                    },
+                                    onPickSvg = {
+                                        pickSvg { svg ->
+                                            updateSelectedKey { it.copy(displayLabel = svg.ifEmpty { null }) }
+                                        }
+                                    }
+                                )
+                            }
+                            else -> {}
+                        }
+                    }
+                }
+            } else if (selectedKey != null && selectedKey.type == KeyType.CHARACTER) {
                 val sec = selectedKey.secondaries ?: SecondaryBindings()
                 val isFirstColumn = selectedKey.id in listOf("1", "q", "a")
                 val isLastColumn = selectedKey.id in listOf("0", "p", "l")
@@ -1107,6 +1278,31 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+fun ModifierDisplayField(
+    label: String,
+    value: String,
+    placeholder: String,
+    onValueChange: (String) -> Unit,
+    onPickSvg: () -> Unit
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        placeholder = { Text(placeholder) },
+        trailingIcon = {
+            TextButton(
+                onClick = onPickSvg,
+                contentPadding = PaddingValues(horizontal = 6.dp)
+            ) {
+                Text("Open SVG", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 @Composable

@@ -33,7 +33,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
@@ -57,6 +56,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TransformOrigin
@@ -79,7 +79,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -89,7 +88,6 @@ import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import marcinlowercase.w.R
 import marcinlowercase.w.model.KeyDefinition
 import marcinlowercase.w.model.KeyType
 import marcinlowercase.w.model.KeyboardThemeMode
@@ -460,6 +458,11 @@ private fun parseSvgDocument(raw: String): ParsedSvg? {
                 }
             }
             path.asAndroidPath().transform(matrix)
+        }
+
+        val fillRuleAttr = extractSvgAttr(attrs, "fill-rule")
+        if (fillRuleAttr.equals("evenodd", ignoreCase = true)) {
+            path.fillType = PathFillType.EvenOdd
         }
 
         val fillAttr = extractSvgAttr(attrs, "fill") ?: rootFill
@@ -1140,48 +1143,56 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                 }
             }
 
-            val iconResId = when (key.type) {
+            val rawVisualLabel = when (liveKey.type) {
                 KeyType.SHIFT -> when (viewModel.shiftState.value) {
-                    marcinlowercase.w.model.ShiftState.OFF -> R.drawable.ic_shift_off
-                    marcinlowercase.w.model.ShiftState.SHIFTED -> R.drawable.ic_shift_on
-                    marcinlowercase.w.model.ShiftState.CAPS_LOCK -> R.drawable.ic_caps_lock
+                    marcinlowercase.w.model.ShiftState.OFF -> liveKey.displayLabel ?: displayedChar
+                    marcinlowercase.w.model.ShiftState.SHIFTED -> liveKey.shiftOnDisplay ?: liveKey.displayLabel ?: displayedChar
+                    marcinlowercase.w.model.ShiftState.CAPS_LOCK -> liveKey.capsLockDisplay ?: liveKey.displayLabel ?: displayedChar
                 }
-                KeyType.BACKSPACE -> if (isSingleShifted) R.drawable.ic_delete else R.drawable.ic_backspace
-                KeyType.ENTER -> R.drawable.ic_new_line
-                else -> null
+                KeyType.BACKSPACE -> if (isSingleShifted) {
+                    liveKey.deleteDisplay ?: liveKey.displayLabel ?: displayedChar
+                } else {
+                    liveKey.displayLabel ?: displayedChar
+                }
+                KeyType.MODIFIER -> {
+                    val base = liveKey.displayLabel ?: displayedChar
+                    val isUpperMod = isShiftActive ||
+                        (liveKey.id == "ctrl" && viewModel.ctrlShiftArmed.value) ||
+                        (liveKey.id == "alt" && viewModel.altShiftArmed.value)
+                    if (!isSvgOrPath(base) && isUpperMod && base.all { it.isLetter() }) {
+                        base.uppercase()
+                    } else {
+                        base
+                    }
+                }
+                else -> liveKey.displayLabel ?: displayedChar
             }
 
-            val visualLabel = key.displayLabel ?: displayedChar
-
-            if (iconResId != null) {
-                Icon(
-                    painter = painterResource(id = iconResId),
-                    contentDescription = null,
-                    tint = keyTextColor,
-                    modifier = Modifier
-                        .size(if (isCompactKey) 18.dp else 22.dp)
-                        .align(Alignment.Center)
-                )
-            } else if (isSvgOrPath(visualLabel)) {
+            if (isSvgOrPath(rawVisualLabel)) {
+                val iconSize = if (liveKey.type == KeyType.CHARACTER) {
+                    if (isCompactKey) 17.dp else 20.dp
+                } else {
+                    if (isCompactKey) 18.dp else 22.dp
+                }
                 SvgPathIcon(
-                    raw = visualLabel,
+                    raw = rawVisualLabel,
                     tint = keyTextColor,
                     modifier = Modifier
-                        .size(if (isCompactKey) 17.dp else 20.dp)
+                        .size(iconSize)
                         .align(Alignment.Center)
                 )
             } else {
-                val labelFontSize = if (key.type == KeyType.MODIFIER) {
+                val labelFontSize = if (liveKey.type == KeyType.MODIFIER) {
                     if (isCompactKey) 11.sp else 13.sp
                 } else if (isCompactKey) {
-                    when (visualLabel.length) {
+                    when (rawVisualLabel.length) {
                         0, 1 -> 17.sp
                         2 -> 13.sp
                         3 -> 11.sp
                         else -> 10.sp
                     }
                 } else {
-                    when (visualLabel.length) {
+                    when (rawVisualLabel.length) {
                         0, 1 -> 20.sp
                         2 -> 15.sp
                         3 -> 13.sp
@@ -1190,10 +1201,10 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                 }
 
                 Text(
-                    text = visualLabel,
+                    text = rawVisualLabel,
                     color = keyTextColor,
                     fontSize = labelFontSize,
-                    fontWeight = if (key.type == KeyType.MODIFIER) FontWeight.SemiBold else FontWeight.Medium,
+                    fontWeight = if (liveKey.type == KeyType.MODIFIER) FontWeight.SemiBold else FontWeight.Medium,
                     fontFamily = activeFont,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1289,8 +1300,8 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                         verticalArrangement = Arrangement.spacedBy(KeyboardDimens.rowGap)
                     ) {
                         val isShiftMode = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
-                        val tabText = if (isShiftMode) "TAB" else "tab"
-                        val escText = if (isShiftMode) "ESC" else "esc"
+                        val rawTab = liveKey.tabDisplay ?: "tab"
+                        val rawEsc = liveKey.escDisplay ?: "esc"
 
                         val shiftOptions = listOf(
                             ShiftHoldAction.TAB,
@@ -1300,6 +1311,7 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                         shiftOptions.forEach { action ->
                             val isSelected = shiftHoldAction == action
                             val itemColor = if (isSelected) onHighlightColor else unselectedPopupTextColor
+                            val optionRaw = if (action == ShiftHoldAction.TAB) rawTab else rawEsc
 
                             Box(
                                 modifier = Modifier
@@ -1311,13 +1323,34 @@ fun RemappableKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = if (action == ShiftHoldAction.TAB) tabText else escText,
-                                    color = itemColor,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontFamily = activeFont
-                                )
+                                if (isSvgOrPath(optionRaw)) {
+                                    SvgPathIcon(
+                                        raw = optionRaw,
+                                        tint = itemColor,
+                                        modifier = Modifier.size(if (isCompactKey) 18.dp else 22.dp)
+                                    )
+                                } else {
+                                    val optionText = if (isShiftMode && optionRaw.all { it.isLetter() }) {
+                                        optionRaw.uppercase()
+                                    } else {
+                                        optionRaw
+                                    }
+                                    val optionFontSize = when (optionText.length) {
+                                        0, 1 -> 20.sp
+                                        2 -> 16.sp
+                                        3 -> 15.sp
+                                        else -> 12.sp
+                                    }
+                                    Text(
+                                        text = optionText,
+                                        color = itemColor,
+                                        fontSize = optionFontSize,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontFamily = activeFont,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }
@@ -1616,6 +1649,9 @@ fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     val viewModel = LocalKeyboardViewModel.current
     val colors = LocalKeyboardColors.current
     val keyHeight = LocalKeyHeight.current
+    val isCompactKey = keyHeight < 44.dp
+    val liveKey = viewModel.layoutConfig.value.rows.flatMap { it.keys }
+        .find { it.id == key.id } ?: key
     val view = LocalView.current
     var isPressedDown by remember { mutableStateOf(false) }
     val isShiftOn = viewModel.shiftState.value != marcinlowercase.w.model.ShiftState.OFF
@@ -1624,10 +1660,17 @@ fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
     val spaceBg = if (isPressedDown) colors.keyPressed else colors.spaceKey
     val spaceTextColor = colors.textOnCharacter
     val cellHeight = keyHeight + KeyboardDimens.rowGap + extraBottomPadding
+    val rawSpaceCustom = liveKey.displayLabel ?: "space"
     val spaceLabel = when (viewModel.vietnameseMode.value) {
         marcinlowercase.w.model.VietnameseMode.TELEX -> if (isShiftOn) "TELEX" else "telex"
         marcinlowercase.w.model.VietnameseMode.VNI -> if (isShiftOn) "VNI" else "vni"
-        marcinlowercase.w.model.VietnameseMode.OFF -> if (isShiftOn) "SPACE" else "space"
+        marcinlowercase.w.model.VietnameseMode.OFF -> {
+            if (!isSvgOrPath(rawSpaceCustom) && isShiftOn && rawSpaceCustom.all { it.isLetter() }) {
+                rawSpaceCustom.uppercase()
+            } else {
+                rawSpaceCustom
+            }
+        }
     }
 
     Box(
@@ -1707,12 +1750,22 @@ fun SpaceKeyView(key: KeyDefinition, isBottomRow: Boolean = false) {
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = spaceLabel,
-                color = spaceTextColor,
-                fontSize = 12.sp,
-                fontFamily = viewModel.fontFamily.value
-            )
+            if (viewModel.vietnameseMode.value == marcinlowercase.w.model.VietnameseMode.OFF && isSvgOrPath(spaceLabel)) {
+                SvgPathIcon(
+                    raw = spaceLabel,
+                    tint = spaceTextColor,
+                    modifier = Modifier.size(if (isCompactKey) 17.dp else 20.dp)
+                )
+            } else {
+                Text(
+                    text = spaceLabel,
+                    color = spaceTextColor,
+                    fontSize = 12.sp,
+                    fontFamily = viewModel.fontFamily.value,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
