@@ -109,7 +109,7 @@ class KeyboardPreferences(private val context: Context) {
     }
 
     val roundCornerEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[KEY_ROUND_CORNER_ENABLED] ?: true
+        preferences[KEY_ROUND_CORNER_ENABLED] ?: false
     }
 
     suspend fun setRoundCornerEnabled(enabled: Boolean) {

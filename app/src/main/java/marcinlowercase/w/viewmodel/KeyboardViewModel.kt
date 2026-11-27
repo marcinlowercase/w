@@ -31,7 +31,7 @@ class KeyboardViewModel : ViewModel() {
     val activePopupKeyId = mutableStateOf<String?>(null)
     val soundEnabled = mutableStateOf(true)
     val outsyncEnabled = mutableStateOf(true)
-    val roundCornerEnabled = mutableStateOf(true)
+    val roundCornerEnabled = mutableStateOf(false)
     val themeMode = mutableStateOf(KeyboardThemeMode.SYSTEM)
     val vietnameseMode = mutableStateOf(VietnameseMode.OFF)
     val languageSwitchShortcut = mutableStateOf("Ctrl+Shift+q")

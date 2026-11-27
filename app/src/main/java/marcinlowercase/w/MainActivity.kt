@@ -144,7 +144,7 @@ fun SettingsScreen(
     val customFontNameState = preferences.customFontName.collectAsState(initial = null)
     val soundEnabledState = preferences.soundEnabled.collectAsState(initial = true)
     val outsyncEnabledState = preferences.outsyncEnabled.collectAsState(initial = true)
-    val roundCornerEnabledState = preferences.roundCornerEnabled.collectAsState(initial = true)
+    val roundCornerEnabledState = preferences.roundCornerEnabled.collectAsState(initial = false)
     val themeModeState = preferences.themeMode.collectAsState(initial = KeyboardThemeMode.SYSTEM)
     val languageShortcutState = preferences.languageSwitchShortcut.collectAsState(initial = "Ctrl+Shift+q")
     var shortcutInput by remember(languageShortcutState.value) { mutableStateOf(languageShortcutState.value) }
@@ -193,6 +193,36 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         StatusCard(context)
+
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Key Mapping",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "Customize secondary options, directional flicks, and custom symbols for every keycap.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                FilledTonalButton(
+                    onClick = onNavigateToMapping,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Configure Key Bindings")
+                }
+            }
+        }
 
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),
@@ -546,36 +576,6 @@ fun SettingsScreen(
                     valueRange = 28f..60f,
                     steps = 31
                 )
-            }
-        }
-
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "Key Mapping",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "Customize secondary options, directional flicks, and custom symbols for every keycap.",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                FilledTonalButton(
-                    onClick = onNavigateToMapping,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Configure Key Bindings")
-                }
             }
         }
 
