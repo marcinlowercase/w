@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import android.view.KeyEvent
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -486,6 +487,11 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
                 }
             }
 
+            if (!isCtrlOn && isNumericOrRawInput()) {
+                sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+                return true
+            }
+
             val hasSelection = currentSelStart != currentSelEnd
             if (hasSelection) {
                 val now = android.os.SystemClock.uptimeMillis()
@@ -606,7 +612,8 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
 
         return when (key.type) {
             KeyType.CHARACTER -> {
-                if (vietnameseMode != VietnameseMode.OFF && key.primaryChar.length == 1) {
+                val numericOrRaw = isNumericOrRawInput()
+                if (!numericOrRaw && vietnameseMode != VietnameseMode.OFF && key.primaryChar.length == 1) {
                     val before = ic.getTextBeforeCursor(40, 0)?.toString() ?: ""
                     val word = before.takeLastWhile { it.isLetter() || it.isDigit() }
                     if (word.isNotEmpty()) {
@@ -616,6 +623,17 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
                             ic.commitText(transformed, 1)
                             return true
                         }
+                    }
+                }
+                if (numericOrRaw && key.primaryChar.length == 1) {
+                    val ch = key.primaryChar[0]
+                    if (ch in '0'..'9') {
+                        sendDownUpKeyEvents(KeyEvent.KEYCODE_0 + (ch - '0'))
+                        return true
+                    }
+                    if ((currentInputEditorInfo?.inputType ?: InputType.TYPE_NULL) == InputType.TYPE_NULL) {
+                        sendKeyChar(ch)
+                        return true
                     }
                 }
                 commitText(key.primaryChar)
@@ -674,10 +692,25 @@ class KeyboardImeService : InputMethodService(), LifecycleOwner, ViewModelStoreO
             else -> KeyEvent.KEYCODE_UNKNOWN
         }
     }
-    private fun commitText(text: String) {
-        currentInputConnection?.commitText(text, 1)
+    private fun isNumericOrRawInput(): Boolean {
+        val inputType = currentInputEditorInfo?.inputType ?: InputType.TYPE_NULL
+        val inputClass = inputType and InputType.TYPE_MASK_CLASS
+        return inputType == InputType.TYPE_NULL ||
+            inputClass == InputType.TYPE_CLASS_NUMBER ||
+            inputClass == InputType.TYPE_CLASS_PHONE ||
+            inputClass == InputType.TYPE_CLASS_DATETIME
     }
 
+    private fun commitText(text: String) {
+        if (isNumericOrRawInput() && text.length == 1) {
+            val ch = text[0]
+            if (ch in '0'..'9') {
+                sendDownUpKeyEvents(KeyEvent.KEYCODE_0 + (ch - '0'))
+                return
+            }
+        }
+        currentInputConnection?.commitText(text, 1)
+    }
     private fun handleModifier(id: String) {
         val ic = currentInputConnection ?: return
         when (id) {
