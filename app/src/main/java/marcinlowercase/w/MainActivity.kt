@@ -926,25 +926,29 @@ fun KeyMappingScreen(onNavigateBack: () -> Unit) {
                             modifier = Modifier.fillMaxWidth()
                         )
 
+                        val isPrimaryDisplayEnabled = selectedKey.primaryChar.isNotEmpty() || !selectedKey.displayLabel.isNullOrEmpty()
                         OutlinedTextField(
                             value = selectedKey.displayLabel ?: "",
                             onValueChange = { newLabel ->
                                 updateSelectedKey { it.copy(displayLabel = newLabel.ifEmpty { null }) }
                             },
+                            enabled = isPrimaryDisplayEnabled,
                             label = { Text("Keycap Display Label (Optional)") },
                             placeholder = { Text("e.g. 'COPY' or SVG") },
-                            trailingIcon = {
-                                TextButton(
-                                    onClick = {
-                                        pickSvg { svgText ->
-                                            updateSelectedKey { it.copy(displayLabel = svgText.ifEmpty { null }) }
-                                        }
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 6.dp)
-                                ) {
-                                    Text("Open SVG", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            trailingIcon = if (isPrimaryDisplayEnabled) {
+                                {
+                                    TextButton(
+                                        onClick = {
+                                            pickSvg { svgText ->
+                                                updateSelectedKey { it.copy(displayLabel = svgText.ifEmpty { null }) }
+                                            }
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 6.dp)
+                                    ) {
+                                        Text("Open SVG", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    }
                                 }
-                            },
+                            } else null,
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -1134,13 +1138,14 @@ fun SecondaryDirectionEditor(
                 placeholder = { Text("Symbol or macro") },
                 modifier = Modifier.weight(1f)
             )
+            val isDisplayEnabled = enabled && (contentValue.isNotEmpty() || displayValue.isNotEmpty())
             OutlinedTextField(
                 value = if (enabled) displayValue else "",
                 onValueChange = onDisplayChange,
-                enabled = enabled,
+                enabled = isDisplayEnabled,
                 label = { Text("Display / SVG") },
                 placeholder = { Text("Label or SVG") },
-                trailingIcon = if (enabled) {
+                trailingIcon = if (isDisplayEnabled) {
                     {
                         TextButton(
                             onClick = onPickSvg,
